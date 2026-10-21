@@ -80,6 +80,7 @@ type Tool = {
   description: string;
   iconUrl: string | null;
   iconStatus: "ready" | "fallback" | "unavailable";
+  isFavorite: boolean;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -107,7 +108,7 @@ The initial `CategoryIconKey` catalogue is: `general`, `icon-libraries`, `motion
 
 ### `GET /api/library`
 
-Returns every owned category, including empty categories, with nested tools. Categories sort by normalized name then ID. Tools sort newest first then ID. First-release search/filtering happens over this complete response in the frontend; the backend must not silently truncate it.
+Returns every owned category, including empty categories, with nested tools. Categories sort by normalized name then ID. Favorite tools sort first within each category, followed by newest tools and ID. First-release search/filtering happens over this complete response in the frontend; the backend must not silently truncate it.
 
 ```json
 {
@@ -131,6 +132,7 @@ Returns every owned category, including empty categories, with nested tools. Cat
             "description": "A searchable icon library.",
             "iconUrl": null,
             "iconStatus": "fallback",
+            "isFavorite": false,
             "version": 1,
             "createdAt": "2026-10-21T08:10:00.000Z",
             "updatedAt": "2026-10-21T08:10:00.000Z"
@@ -144,7 +146,7 @@ Returns every owned category, including empty categories, with nested tools. Cat
 }
 ```
 
-The empty state returns `categories: []` and zero counts with HTTP 200.
+The first time an account's library is read while empty, the server creates six starter categories (Developer Tools, UI & Design, Deployment, Databases, AI Agents, Courses & Learning) and returns them. This happens once per account (flag in Clerk private metadata), so a user who later deletes every category gets the true empty state: `categories: []` and zero counts with HTTP 200.
 
 ## Metadata discovery
 
@@ -259,12 +261,13 @@ When `metadataToken` is absent or invalid/expired, valid manual fields remain sa
 
 ### `PATCH /api/tools/:id`
 
-At least one mutable field is required. Omitted fields remain unchanged.
+At least one mutable field is required. Omitted fields remain unchanged. Set `isFavorite` to prioritize or unprioritize a tool; the same version precondition applies.
 
 ```json
 {
   "name": "Example Icons Pro",
   "categoryId": "b091dbab-f8de-4e4b-b52a-28c3d149a891",
+  "isFavorite": true,
   "version": 1
 }
 ```

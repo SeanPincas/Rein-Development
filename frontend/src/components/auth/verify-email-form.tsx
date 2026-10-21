@@ -61,9 +61,13 @@ export function VerifyEmailForm() {
   const started = useRef(false);
 
   useEffect(() => {
-    setNow(Date.now());
-    const id = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(id);
+    const tick = () => setNow(Date.now());
+    const first = window.setTimeout(tick, 0);
+    const id = window.setInterval(tick, 1000);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(id);
+    };
   }, []);
 
   const focusDigit = (index: number) => inputs.current[Math.min(Math.max(index, 0), CODE_LENGTH - 1)]?.focus();
@@ -286,7 +290,7 @@ export function VerifyEmailForm() {
           type="button"
           onClick={() => void sendCode(true)}
           disabled={!canResend}
-          className={cx(buttonStyles.outline, "h-12 justify-center disabled:cursor-not-allowed disabled:opacity-50")}
+          className={cx(buttonStyles.outline, "justify-center disabled:cursor-not-allowed disabled:opacity-50")}
         >
           {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
         </button>

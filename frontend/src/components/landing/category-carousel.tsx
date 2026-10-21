@@ -14,7 +14,7 @@ const ChevronIcon = ({ direction }: { direction: "left" | "right" }) => (
 );
 
 const controlButton =
-  "flex size-11 items-center justify-center rounded-[10px] border border-rein-border bg-black/60 text-violet-200 transition-colors hover:border-rein-accent hover:text-white";
+  "flex size-10 items-center justify-center rounded-lg border border-rein-border bg-black/60 text-violet-200 transition-colors hover:border-rein-accent hover:text-white";
 
 /** Four category cards per slide, with arrows, dots and a pausable autoplay. */
 export function CategoryCarousel() {

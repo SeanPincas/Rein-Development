@@ -67,6 +67,15 @@ body {
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade));
 }
 
+/* Slim purple horizontal scrollbar for the category icon picker. */
+.icon-picker-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(167 139 250 / 0.5) transparent;
+}
+.icon-picker-scroll::-webkit-scrollbar { height: 6px; }
+.icon-picker-scroll::-webkit-scrollbar-thumb { background: rgb(167 139 250 / 0.5); border-radius: 9999px; }
+.icon-picker-scroll::-webkit-scrollbar-track { background: transparent; }
+
 /* 96px major / 24px minor blueprint grid */
 .blueprint-grid {
   background-color: var(--rein-bg);
@@ -132,7 +141,35 @@ body {
   100% { border-radius: 55% 45% 30% 70% / 40% 62% 38% 60%; }
 }
 
+/*
+ * Library card entrance: cards travel the full viewport height into place
+ * (timing from columnEntrance in src/lib/design/entrance.ts).
+ */
+.rein-enter-down,
+.rein-enter-up {
+  animation-duration: var(--enter-duration, 1600ms);
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-fill-mode: both;
+  will-change: transform, opacity;
+}
+.rein-enter-down { animation-name: rein-enter-down; }
+.rein-enter-up { animation-name: rein-enter-up; }
+
+@keyframes rein-enter-down {
+  0% { opacity: 0; transform: translate3d(0, -100vh, 0); }
+  35% { opacity: 1; }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes rein-enter-up {
+  0% { opacity: 0; transform: translate3d(0, 100vh, 0); }
+  35% { opacity: 1; }
+  100% { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .lava-blob { animation: none; transition: none; }
+  .rein-enter-down,
+  .rein-enter-up { animation: none; }
 }

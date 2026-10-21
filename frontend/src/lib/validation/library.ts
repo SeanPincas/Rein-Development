@@ -107,6 +107,7 @@ export const updateToolSchema = z
     name: toolNameSchema.optional(),
     url: toolUrlSchema.optional(),
     description: toolDescriptionSchema.optional(),
+    isFavorite: z.boolean().optional(),
     metadataToken: metadataTokenSchema.optional(),
     categoryId: idSchema.optional(),
     version: versionSchema,
@@ -117,6 +118,7 @@ export const updateToolSchema = z
       value.name !== undefined ||
       value.url !== undefined ||
       value.description !== undefined ||
+      value.isFavorite !== undefined ||
       value.categoryId !== undefined,
     { message: "Provide a tool field to update." },
   );

@@ -29,6 +29,7 @@ type ToolRow = {
   description: string;
   icon_url: string | null;
   icon_status: "ready" | "fallback" | "unavailable";
+  is_favorite: boolean;
   version: number;
   created_at: string;
   updated_at: string;
@@ -45,7 +46,7 @@ export type LibraryResponse = {
 const categoryColumns =
   "id,name,icon_key,version,created_at,updated_at";
 const toolColumns =
-  "id,category_id,name,url,hostname,description,icon_url,icon_status,version,created_at,updated_at";
+  "id,category_id,name,url,hostname,description,icon_url,icon_status,is_favorite,version,created_at,updated_at";
 
 export function toCategory(row: CategoryRow) {
   return {
@@ -68,6 +69,7 @@ export function toTool(row: ToolRow) {
     description: row.description,
     iconUrl: row.icon_url,
     iconStatus: row.icon_status,
+    isFavorite: row.is_favorite,
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -226,6 +228,7 @@ export async function updateTool(
   const changes = {
     ...(input.name === undefined ? {} : { name: input.name }),
     ...(input.description === undefined ? {} : { description: input.description }),
+    ...(input.isFavorite === undefined ? {} : { is_favorite: input.isFavorite }),
     ...(input.categoryId === undefined ? {} : { category_id: input.categoryId }),
     ...(input.url === undefined
       ? {}

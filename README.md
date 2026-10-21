@@ -44,7 +44,7 @@ Goal: ship the visible Rein experience on top of the verified backend contract, 
 | F1 | Landing page: tokens, blueprint grid, drifting purple glows, navbar, hero, features, categories, CTA, footer | Built — awaiting browser review |
 | F2 | Auth: `ClerkProvider`, `/sign-up` and `/sign-in` pages using Clerk's card restyled to the blueprint theme, navbar account controls | Built — awaiting live sign-up test |
 | F2b | Mandatory email code after every sign-in/sign-up: `/verify-email`, Brevo delivery, session-bound verified cookie, `/library` and private APIs gated | Built — awaiting migration push and live test |
-| F3 | Library: staggered three-column bento grid from `GET /api/library`, empty/loading/error states, search and category filter | Next — `/library` is a placeholder |
+| F3 | Library: staggered three-column bento grid from `GET /api/library`, six starter categories for new accounts, empty/loading/error states, search (⌘K) and category filter, refresh on refocus | Built — awaiting live test; Add Tool button disabled until F4 |
 | F4 | Add/Edit Tool: form with metadata lookup, category create/rename/delete with reassignment, Sonner toasts | Not started |
 | F5 | Polish and verification: light theme, keyboard and screen-reader pass, responsive review, two-account journey | Not started |
 

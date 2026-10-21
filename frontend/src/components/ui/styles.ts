@@ -1,15 +1,15 @@
-/** Shared class names so buttons and panels stay consistent across the landing page. */
+/** Shared class names so buttons and panels stay consistent across the app. */
 export const buttonStyles = {
   primary:
-    "inline-flex h-[52px] items-center gap-2 rounded-xl bg-rein-accent px-6 text-base font-semibold text-black transition-colors hover:bg-violet-300",
+    "inline-flex h-11 items-center gap-2 rounded-[10px] bg-rein-accent px-5 text-[15px] font-semibold text-black transition-colors hover:bg-violet-300",
   white:
-    "inline-flex h-[52px] items-center gap-2 rounded-xl bg-white px-6 text-base font-semibold text-black transition-colors hover:bg-violet-100",
+    "inline-flex h-11 items-center gap-2 rounded-[10px] bg-white px-5 text-[15px] font-semibold text-black transition-colors hover:bg-violet-100",
   outline:
-    "inline-flex h-[52px] items-center rounded-xl border border-white/40 px-6 text-base font-medium text-white transition-colors hover:border-white",
+    "inline-flex h-11 items-center gap-2 rounded-[10px] border border-white/30 px-5 text-[15px] font-medium text-white transition-colors hover:border-white",
   navPrimary:
-    "inline-flex h-11 items-center rounded-[10px] bg-rein-accent px-[18px] text-[15px] font-semibold text-black transition-colors hover:bg-violet-300",
+    "inline-flex h-10 items-center rounded-lg bg-rein-accent px-4 text-sm font-semibold text-black transition-colors hover:bg-violet-300",
   navQuiet:
-    "inline-flex h-11 items-center px-4 text-[15px] text-white transition-colors hover:text-violet-300",
+    "inline-flex h-10 items-center px-3 text-sm text-white transition-colors hover:text-violet-300",
 } as const;
 
 export const panel = "border border-rein-border bg-rein-surface";

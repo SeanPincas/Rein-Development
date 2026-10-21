@@ -1,19 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import { buttonStyles } from "@/components/ui/styles";
 
 /** Navbar account area: links to the auth pages when signed out, library + account menu when signed in. */
 export function HeaderAuthControls() {
   const { isLoaded, isSignedIn } = useAuth();
+  const onLibrary = usePathname()?.startsWith("/library");
 
   if (isLoaded && isSignedIn) {
     return (
       <div className="flex items-center gap-3">
-        <Link href="/library" className={buttonStyles.navQuiet}>
-          Open library
-        </Link>
+        {!onLibrary && (
+          <Link href="/library" className={buttonStyles.navQuiet}>
+            Open library
+          </Link>
+        )}
         <UserButton />
       </div>
     );

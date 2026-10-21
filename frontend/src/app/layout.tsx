@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { clerkAppearance } from "@/components/auth/clerk-appearance";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -48,6 +49,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           signUpForceRedirectUrl="/verify-email"
         >
           {children}
+          <Toaster
+            theme="dark"
+            position="bottom-right"
+            toastOptions={{
+              style: { background: "#07050f", border: "1px solid rgb(167 139 250 / 0.4)", color: "#ffffff" },
+            }}
+          />
         </ClerkProvider>
       </body>
     </html>

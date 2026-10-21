@@ -29,6 +29,7 @@ Save: session -> validate -> normalize -> transaction -> saved record
 Edit: session -> owner/version check -> validate -> atomic update
 Delete category: session -> owner/version check -> reassign -> delete atomically
 Metadata: session -> rate limit -> safe public fetch -> suggestions or fallback
+Favorite: session -> owner/version check -> update is_favorite -> library priority order
 ```
 
 Website metadata is optional enrichment. A valid tool must remain saveable when the target site is unreachable or metadata lookup fails. Never trust a client-submitted owner ID, normalized URL, hostname, metadata status, or arbitrary icon URL as authoritative server data.
@@ -72,6 +73,8 @@ Claude Code can work from the Phase 0 contract and fixtures while database work 
 | PATCH /api/tools/:id | Edit fields or category, using a version precondition |
 | DELETE /api/tools/:id | Delete an owned tool with documented concurrency behavior |
 | POST /api/metadata | Retrieve best-effort title, description, and icon suggestions |
+
+Tool favorites are stored as the owner-scoped boolean `is_favorite` and exposed as `isFavorite`. A favorite update uses `PATCH /api/tools/:id` with `{ "isFavorite": true|false, "version": n }`; it is atomic and rejects stale versions. `GET /api/library` returns favorites first within each category.
 
 Document DELETE request encoding explicitly rather than assuming every client sends a JSON body. Clerk owns sign-in/sign-up/session routes; product API routes use Clerk's verified server-side session and do not implement a second auth flow.
 
