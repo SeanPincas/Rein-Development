@@ -20,6 +20,22 @@ Open `http://localhost:3000`. Stop the service with:
 docker compose down
 ```
 
+## Live local development
+
+Use the development Compose file while changing the frontend. It mounts `frontend/` into the container and runs Next.js with Fast Refresh, so saved code and CSS changes appear in the browser without rebuilding or restarting Docker:
+
+```powershell
+docker compose -f docker-compose.dev.yml up
+```
+
+Leave that terminal running and open `http://localhost:3000`. Stop it with:
+
+```powershell
+docker compose -f docker-compose.dev.yml down
+```
+
+Use the regular `docker-compose.yml` for production-style image checks; use `docker-compose.dev.yml` for day-to-day development.
+
 ## Supabase
 
 The Compose file runs the Rein web application only. Supabase local development remains managed by the Supabase CLI and its Docker services under `backend/supabase/`. The hosted Supabase project is configured separately and receives migrations with `npx supabase db push` from `backend/`.
