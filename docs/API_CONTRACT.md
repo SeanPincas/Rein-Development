@@ -295,7 +295,7 @@ Every Clerk sign-in and sign-up is followed by a mandatory email code. Clerk red
 
 **Private API routes** (`/api/library`, `/api/categories*`, `/api/tools*`, `/api/metadata`) return `EMAIL_UNVERIFIED` (403) until the current Clerk session is verified. Only the three routes below run before verification.
 
-Rules: six random digits generated on the server; only an HMAC (keyed with a server secret, bound to the Clerk user ID and session ID) is stored; codes expire after 10 minutes, allow 5 attempts, are single use; resend at most once per 60 seconds per session and 5 times per hour per user. The code is never returned by any endpoint. Success sets the `rein_email_verified` cookie (HttpOnly, SameSite=Lax, Secure on HTTPS, 7 days) signed and bound to the same user and session. A new sign-in is a new Clerk session and must verify again.
+Rules: six random digits generated on the server; only an HMAC (keyed with a server secret, bound to the Clerk user ID and session ID) is stored; codes expire after 10 minutes, allow 5 attempts, are single use; resend at most once per 60 seconds per session and 5 times per hour per user. The code is never returned by any endpoint. Success sets the `rein_email_verified` cookie (HttpOnly, SameSite=Lax, Secure on HTTPS, 7 days) signed and bound to the user. A new Clerk session on the same browser reuses that verified state until the seven-day cookie expires.
 
 ### `GET /api/verification/email/status`
 

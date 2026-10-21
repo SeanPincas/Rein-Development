@@ -7,9 +7,9 @@ import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
  * - Codes: six random digits, generated and hashed on the server. The database
  *   stores only an HMAC keyed with a server secret, bound to the Clerk user and
  *   session, so the code itself never leaves the server except in the email.
- * - Verified state: a signed, HttpOnly cookie bound to the same user + session.
- *   A new sign-in creates a new Clerk session, so it must verify again; old
- *   sessions without the cookie are never let through.
+ * - Verified state: a signed, HttpOnly cookie bound to the user and browser.
+ *   It lasts seven days, so signing out and back in during that period does
+ *   not require another code on the same browser.
  */
 
 export const EMAIL_OTP = {
@@ -22,7 +22,7 @@ export const EMAIL_OTP = {
 
 export const EMAIL_VERIFIED_COOKIE = "rein_email_verified";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
-const COOKIE_VERSION = "v1";
+const COOKIE_VERSION = "v2";
 
 function verificationSecret(): string {
   const secret = process.env.EMAIL_OTP_SECRET?.trim() || process.env.CLERK_SECRET_KEY?.trim();
@@ -54,28 +54,28 @@ export function maskEmail(email: string): string {
 
 export function createVerifiedCookieValue(
   userId: string,
-  sessionId: string,
+  _sessionId: string,
   nowSeconds = Math.floor(Date.now() / 1000),
   secret?: string,
 ): string {
   const expires = nowSeconds + COOKIE_MAX_AGE_SECONDS;
-  const signature = hmac("email-verified", `${COOKIE_VERSION}|${userId}|${sessionId}|${expires}`, secret).toString("base64url");
+  const signature = hmac("email-verified", `${COOKIE_VERSION}|${userId}|${expires}`, secret).toString("base64url");
   return `${COOKIE_VERSION}.${expires}.${signature}`;
 }
 
 export function isValidVerifiedCookie(
   value: string | undefined,
   userId: string,
-  sessionId: string | null,
+  _sessionId: string | null,
   nowSeconds = Math.floor(Date.now() / 1000),
   secret?: string,
 ): boolean {
-  if (!value || !sessionId) return false;
+  if (!value) return false;
   const [version, expiresText, signature] = value.split(".");
   const expires = Number(expiresText);
   if (version !== COOKIE_VERSION || !Number.isInteger(expires) || expires <= nowSeconds || !signature) return false;
 
-  const expected = hmac("email-verified", `${COOKIE_VERSION}|${userId}|${sessionId}|${expires}`, secret);
+  const expected = hmac("email-verified", `${COOKIE_VERSION}|${userId}|${expires}`, secret);
   const provided = Buffer.from(signature, "base64url");
   return provided.length === expected.length && timingSafeEqual(provided, expected);
 }
