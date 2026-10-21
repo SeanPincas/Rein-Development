@@ -134,6 +134,27 @@ export const deleteCategoryQuerySchema = z
   })
   .strict();
 
+export const reorderCategoriesSchema = z
+  .object({
+    items: z
+      .array(z.object({ id: idSchema, sortOrder: z.number().int().positive() }).strict())
+      .min(1)
+      .max(500),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const ids = new Set(value.items.map((item) => item.id));
+    const positions = new Set(value.items.map((item) => item.sortOrder));
+    if (ids.size !== value.items.length) {
+      context.addIssue({ code: "custom", path: ["items"], message: "Category IDs must be unique." });
+    }
+    if (positions.size !== value.items.length) {
+      context.addIssue({ code: "custom", path: ["items"], message: "Category positions must be unique." });
+    }
+  });
+
+export type ReorderCategoriesInput = z.infer<typeof reorderCategoriesSchema>;
+
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof updateCategorySchema>;
 export type CreateToolInput = z.infer<typeof createToolSchema>;

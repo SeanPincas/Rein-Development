@@ -65,6 +65,7 @@ type Category = {
   id: string;
   name: string;
   iconKey: CategoryIconKey;
+  sortOrder: number;
   toolCount: number;
   version: number;
   createdAt: string;
@@ -108,7 +109,7 @@ The initial `CategoryIconKey` catalogue is: `general`, `icon-libraries`, `motion
 
 ### `GET /api/library`
 
-Returns every owned category, including empty categories, with nested tools. Categories sort by normalized name then ID. Favorite tools sort first within each category, followed by newest tools and ID. First-release search/filtering happens over this complete response in the frontend; the backend must not silently truncate it.
+Returns every owned category, including empty categories, with nested tools. Categories sort by each user's saved `sortOrder` then ID. Favorite tools sort first within each category, followed by newest tools and ID. First-release search/filtering happens over this complete response in the frontend; the backend must not silently truncate it.
 
 ```json
 {
@@ -204,6 +205,16 @@ At least one mutable field is required.
 ```
 
 Returns HTTP 200 with the updated category. A version mismatch returns `STALE_VERSION` (409) and no update.
+
+### `PATCH /api/categories/order`
+
+Persists the complete category order for the current user in one transaction. The request must include every owned category exactly once, with positions starting at 1:
+
+```json
+{ "items": [{ "id": "uuid", "sortOrder": 1 }] }
+```
+
+Returns `{ "updatedCount": 3 }`. The saved sequence is shared across responsive layouts; CSS reflows it into the available number of columns.
 
 ### `DELETE /api/categories/:id?version=1&reassignTo=<uuid>`
 
