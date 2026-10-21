@@ -1,0 +1,21 @@
+{
+  "name": "rein-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Supabase database tooling, migrations, and backend verification for Rein.",
+  "scripts": {
+    "supabase": "supabase",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset": "supabase db reset",
+    "db:lint": "supabase db lint",
+    "db:test": "supabase test db",
+    "db:diff": "supabase db diff",
+    "migration:new": "supabase migration new"
+  },
+  "devDependencies": {
+    "@supabase/cli-windows-x64": "2.121.0",
+    "supabase": "2.121.0"
+  }
+}

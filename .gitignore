@@ -1,0 +1,22 @@
+# Dependencies and generated output
+**/node_modules/
+**/.next/
+**/out/
+**/coverage/
+**/*.tsbuildinfo
+
+# Local environment and secrets
+**/.env*
+!**/.env.example
+
+# Supabase local state
+backend/supabase/.temp/
+
+# Preserved standalone frontend Git metadata
+.frontend-git-backup/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.swp
+
