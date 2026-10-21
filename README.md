@@ -34,6 +34,21 @@ It solves the problem of forgetting a useful website's name or where its link wa
 - Phase 6 backend metadata and site-icon discovery is complete and verified locally. Phase 7 release-readiness checks are documented; live Clerk/Supabase journey and two-account checks await development credentials. Claude Code owns Heroicons rendering, `ClerkProvider`, visible auth controls, and the rest of the frontend.
 - Final queued backend phase: Phase 7 integration, full journey verification, deployment preparation, and Claude Code handoff after Phase 6 is complete.
 
+## Frontend progress (Claude Code)
+
+Goal: ship the visible Rein experience on top of the verified backend contract, one stage at a time.
+
+| Stage | Deliverable | Status |
+| --- | --- | --- |
+| F0 | Brand: Stepped R mark, black/purple blueprint direction, logo and landing mockups | Complete |
+| F1 | Landing page: tokens, blueprint grid, drifting purple glows, navbar, hero, features, categories, CTA, footer | Built — awaiting browser review |
+| F2 | Auth: `ClerkProvider`, `/sign-up` and `/sign-in` pages using Clerk's card restyled to the blueprint theme, navbar account controls | Built — awaiting live sign-up test |
+| F3 | Library: staggered three-column bento grid from `GET /api/library`, empty/loading/error states, search and category filter | Next — `/library` is a placeholder |
+| F4 | Add/Edit Tool: form with metadata lookup, category create/rename/delete with reassignment, Sonner toasts | Not started |
+| F5 | Polish and verification: light theme, keyboard and screen-reader pass, responsive review, two-account journey | Not started |
+
+Design tokens live in `frontend/src/app/globals.css`; the Clerk theme in `frontend/src/components/auth/clerk-appearance.ts`; landing copy in `frontend/src/components/landing/content.ts`.
+
 ## Work ownership
 
 The user assigned the following responsibilities on October 21, 2026:
@@ -190,3 +205,4 @@ Browser extensions, bookmark imports, public sharing, AI recommendations, nested
 | October 21, 2026 | Completed Phase 4: implemented category/tool mutation routes, normalization, duplicate and stale-version handling, and authenticated atomic database transactions. |
 | October 21, 2026 | Selected Sonner for frontend toast notifications. Toast rendering belongs to Claude Code; backend response codes and request IDs provide the notification inputs. |
 | October 21, 2026 | Completed Phase 5: added the private single-snapshot library endpoint with empty categories, nested tools, stable ordering, and derived counts. |
+| October 21, 2026 | Approved the Stepped R logo and black/purple blueprint direction. Claude Code built the landing page and Clerk-themed `/sign-up` and `/sign-in` pages (stages F0–F2). |

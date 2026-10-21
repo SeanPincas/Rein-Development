@@ -11,7 +11,8 @@ COPY --from=deps /app/frontend/node_modules ./node_modules
 COPY frontend/ ./
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-RUN npm run build:webpack
+# Turbopack build: Tailwind runs through the @tailwindcss/turbopack loader in next.config.ts.
+RUN npm run build
 
 FROM node:22-alpine AS runner
 

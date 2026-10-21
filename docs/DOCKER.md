@@ -12,6 +12,8 @@ The Clerk publishable key is needed while Next.js builds the browser bundle. Loa
 docker compose --env-file frontend/.env.local up --build
 ```
 
+`--env-file` passes the Clerk publishable key into the image build; `NEXT_PUBLIC_*` values are compiled into the browser bundle, so rebuild with `--build` after code or key changes.
+
 Open `http://localhost:3000`. Stop the service with:
 
 ```powershell
