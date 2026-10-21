@@ -1,6 +1,6 @@
 # Phase 7 — integration and release readiness
 
-Status: local backend verification complete. Live Clerk/Supabase integration and two-account browser checks require the project owner to configure the external development applications.
+Status: authentication and custom email OTP delivery are integrated and verified. Two-account browser isolation, full failure-case exercise, and production operations remain.
 
 ## Verified locally
 
@@ -12,16 +12,19 @@ Status: local backend verification complete. Live Clerk/Supabase integration and
 - `npm run db:lint` reports no schema errors.
 - `npm run db:reset -- --no-seed` replays migrations in timestamp order.
 - `npm run db:test` passes 6 pgTAP files and 63 assertions, including RLS isolation, transactional reassignment, library reads, and metadata rate limiting.
+- The email OTP migration (`20261021090000_email_otp.sql`) is applied to the hosted Supabase project.
+- Local database tests pass 7 pgTAP files and 82 assertions, including OTP expiry, single-use, attempt limits, resend cooldown, and session binding.
+- Clerk email OTP delivery through the signed webhook and Brevo has been exercised successfully with the development application.
 
 ## External activation checklist
 
-1. Create or select the Clerk development application. Copy its publishable and secret keys into an ignored `frontend/.env.local`.
-2. Enable the intended Clerk sign-in methods and configure allowed development origins and redirect URLs for `APP_ORIGIN`.
-3. Activate Clerk's native Supabase third-party integration and configure the same Clerk domain in the Supabase project. Do not introduce a second Supabase credential flow.
-4. Start the application with the configured environment and verify sign-up/sign-in/sign-out through Claude Code's frontend controls.
+1. ~~Create or select the Clerk development application and configure its keys.~~ Complete.
+2. ~~Enable the intended Clerk sign-in methods and configure development origins and redirects.~~ Complete.
+3. ~~Activate Clerk's native Supabase third-party integration.~~ Complete.
+4. ~~Verify sign-up/sign-in/sign-out and the mandatory Rein email OTP flow.~~ Complete.
 5. Using two separate Clerk accounts, create categories and tools, read the library, edit and reassign records, delete records, and confirm neither account can observe the other's rows.
 6. Exercise duplicate URL, duplicate category, stale version, invalid category reassignment, malformed JSON, cross-origin mutation, expired session, metadata timeout, unsafe URL, and rate-limit responses. Confirm the frontend maps stable error codes to field errors or Sonner toasts without displaying raw exceptions.
-7. Configure Brevo only after Clerk email delivery is working. The backend now exposes `POST /api/webhooks/clerk/email`; verify a sender/domain, store `BREVO_API_KEY` server-side, create a signed Clerk webhook for `email.created`, test a Gmail recipient, and only then disable “Delivered by Clerk” for the selected template.
+7. ~~Configure Brevo sender delivery and the signed Clerk `email.created` webhook.~~ Complete for development. A public production endpoint and production sender/domain remain required before release.
 
 ## Environment and operations
 
