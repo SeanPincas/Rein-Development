@@ -10,6 +10,7 @@ as $$
       c.id,
       c.name,
       c.icon_key,
+      c.sort_order,
       c.version,
       c.created_at,
       c.updated_at,
@@ -45,12 +46,13 @@ as $$
           'id', id,
           'name', name,
           'iconKey', icon_key,
+          'sortOrder', sort_order,
           'toolCount', tool_count,
           'version', version,
           'createdAt', created_at,
           'updatedAt', updated_at,
           'tools', tools
-        ) order by lower(name), id
+        ) order by sort_order, id
       ),
       '[]'::jsonb
     ),

@@ -68,13 +68,14 @@ Claude Code can work from the Phase 0 contract and fixtures while database work 
 | GET /api/library | Read owned categories and tools, including category counts |
 | POST /api/categories | Create a category |
 | PATCH /api/categories/:id | Rename or change icon, using a version precondition |
+| PATCH /api/categories/order | Persist the complete owner-scoped category order atomically |
 | DELETE /api/categories/:id | Delete; require reassignment when populated |
 | POST /api/tools | Create a tool; optionally create its category in the same transaction |
 | PATCH /api/tools/:id | Edit fields or category, using a version precondition |
 | DELETE /api/tools/:id | Delete an owned tool with documented concurrency behavior |
 | POST /api/metadata | Retrieve best-effort title, description, and icon suggestions |
 
-Tool favorites are stored as the owner-scoped boolean `is_favorite` and exposed as `isFavorite`. A favorite update uses `PATCH /api/tools/:id` with `{ "isFavorite": true|false, "version": n }`; it is atomic and rejects stale versions. `GET /api/library` returns favorites first within each category.
+Category order is stored as owner-scoped `sort_order` and exposed as `sortOrder`. Reordering uses `PATCH /api/categories/order` with the complete ordered list and updates all rows in one transaction. Tool favorites are stored as the owner-scoped boolean `is_favorite` and exposed as `isFavorite`. A favorite update uses `PATCH /api/tools/:id` with `{ "isFavorite": true|false, "version": n }`; it is atomic and rejects stale versions. `GET /api/library` returns categories in saved order and favorites first within each category.
 
 Document DELETE request encoding explicitly rather than assuming every client sends a JSON body. Clerk owns sign-in/sign-up/session routes; product API routes use Clerk's verified server-side session and do not implement a second auth flow.
 
@@ -99,7 +100,7 @@ Document DELETE request encoding explicitly rather than assuming every client se
 ### Steps
 
 1. [x] Add versioned SQL migrations under `supabase/migrations/`.
-2. [x] Define `categories`: UUID id, text Clerk user_id, name, normalized_name, icon_key, version, created_at, updated_at.
+2. [x] Define `categories`: UUID id, text Clerk user_id, name, normalized_name, icon_key, sort_order, version, created_at, updated_at.
 3. [x] Define `tools`: UUID id, text Clerk user_id, category_id, name, original URL, normalized_url, hostname, description, icon_url, icon_status, version, created_at, updated_at.
 4. [x] Use Clerk as the only application identity store. Do not create credentials or duplicate Clerk user records in PostgreSQL unless a later profile feature requires synchronized data.
 5. [x] Add required fields, limits, allowed icon status values, and unique constraints for owner/category-name and owner/normalized-URL.

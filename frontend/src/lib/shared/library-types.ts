@@ -20,6 +20,7 @@ export type LibraryCategory = {
   id: string;
   name: string;
   iconKey: CategoryIconKey;
+  sortOrder: number;
   toolCount: number;
   version: number;
   createdAt: string;

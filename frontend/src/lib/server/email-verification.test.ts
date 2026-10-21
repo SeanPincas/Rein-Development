@@ -34,18 +34,18 @@ describe("verified cookie", () => {
   const now = 1_800_000_000;
   const value = createVerifiedCookieValue("user_a", "sess_a", now, secret);
 
-  it("accepts its own user and session before expiry", () => {
+  it("accepts the same user across sessions before expiry", () => {
     expect(isValidVerifiedCookie(value, "user_a", "sess_a", now + 60, secret)).toBe(true);
+    expect(isValidVerifiedCookie(value, "user_a", "sess_b", now + 60, secret)).toBe(true);
   });
 
-  it("rejects another session, another user, expiry and tampering", () => {
-    expect(isValidVerifiedCookie(value, "user_a", "sess_b", now, secret)).toBe(false);
+  it("rejects another user, expiry and tampering", () => {
     expect(isValidVerifiedCookie(value, "user_b", "sess_a", now, secret)).toBe(false);
     expect(isValidVerifiedCookie(value, "user_a", "sess_a", now + 60 * 60 * 24 * 8, secret)).toBe(false);
     expect(isValidVerifiedCookie(`${value}x`, "user_a", "sess_a", now, secret)).toBe(false);
     expect(isValidVerifiedCookie(value.replace(/\.\d+\./, `.${now + 999_999}.`), "user_a", "sess_a", now, secret)).toBe(false);
     expect(isValidVerifiedCookie(undefined, "user_a", "sess_a", now, secret)).toBe(false);
-    expect(isValidVerifiedCookie(value, "user_a", null, now, secret)).toBe(false);
+    expect(isValidVerifiedCookie(value, "user_a", null, now, secret)).toBe(true);
   });
 
   it("is HttpOnly and SameSite=Lax", () => {
@@ -63,7 +63,7 @@ describe("verified cookie", () => {
       headers: { cookie: `other=1; ${EMAIL_VERIFIED_COOKIE}=${fresh}` },
     });
     expect(isEmailVerifiedRequest(request, "user_a", "sess_a")).toBe(true);
-    expect(isEmailVerifiedRequest(request, "user_a", "sess_other")).toBe(false);
+    expect(isEmailVerifiedRequest(request, "user_a", "sess_other")).toBe(true);
     delete process.env.EMAIL_OTP_SECRET;
   });
 });

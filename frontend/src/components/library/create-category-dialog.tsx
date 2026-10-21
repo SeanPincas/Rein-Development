@@ -114,10 +114,11 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
       onClick={(event) => {
         if (event.target === event.currentTarget) close();
       }}
-      className="m-auto w-[min(560px,calc(100%-32px))] max-h-[calc(100dvh-32px)] overflow-x-hidden overflow-y-auto rounded-[20px] border border-rein-border-strong bg-[#07050f] p-0 text-white shadow-[0_0_120px_rgb(124_58_237/0.3)] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(560px,calc(100%-32px))] max-h-[calc(100dvh-32px)] overflow-hidden rounded-[20px] border border-rein-border-strong bg-[#07050f] p-0 text-white shadow-[0_0_120px_rgb(124_58_237/0.3)] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
     >
-      <form onSubmit={submit} noValidate>
-        <div className="flex items-start justify-between gap-4 border-b border-dashed border-rein-border px-7 pb-5 pt-6">
+      {/* Header and footer stay put; only the fields scroll when the form grows. */}
+      <form onSubmit={submit} noValidate className="flex max-h-[calc(100dvh-32px)] flex-col">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-dashed border-rein-border px-7 pb-5 pt-6">
           <div className="flex flex-col gap-1.5">
             <p className={cx("m-0", eyebrow)}>NEW ENTRY / C.01</p>
             <h2 id={titleId} className="m-0 text-[26px] font-bold tracking-[-0.02em]">
@@ -134,7 +135,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
           </button>
         </div>
 
-        <div className="flex flex-col gap-[22px] px-7 py-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-[22px] overflow-y-auto overflow-x-hidden overscroll-contain px-7 py-6 [&>*]:shrink-0">
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between">
               <label htmlFor="category-name" className="text-sm font-semibold">
@@ -199,7 +200,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rein-line bg-black/60 px-7 py-[18px]">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-rein-line bg-black/60 px-7 py-[18px]">
           <span className="font-mono text-[11px] tracking-[0.08em] text-rein-label">ESC TO CANCEL</span>
           <div className="flex gap-2.5">
             <button type="button" onClick={close} className={buttonStyles.outline}>

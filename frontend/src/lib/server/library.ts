@@ -16,6 +16,7 @@ type CategoryRow = {
   id: string;
   name: string;
   icon_key: string;
+  sort_order: number;
   version: number;
   created_at: string;
   updated_at: string;
@@ -44,7 +45,7 @@ export type LibraryResponse = {
 };
 
 const categoryColumns =
-  "id,name,icon_key,version,created_at,updated_at";
+  "id,name,icon_key,sort_order,version,created_at,updated_at";
 const toolColumns =
   "id,category_id,name,url,hostname,description,icon_url,icon_status,is_favorite,version,created_at,updated_at";
 
@@ -53,6 +54,7 @@ export function toCategory(row: CategoryRow) {
     id: row.id,
     name: row.name,
     iconKey: row.icon_key,
+    sortOrder: row.sort_order,
     version: row.version,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -145,6 +147,17 @@ export async function updateCategory(
   if (error) throw mapDatabaseError(error);
   if (!data) return missingOrStale(database, "categories", id, "Category");
   return toCategory(data as CategoryRow);
+}
+
+export async function reorderCategories(
+  database: SupabaseClient,
+  items: Array<{ id: string; sortOrder: number }>,
+) {
+  const { data, error } = await database.rpc("reorder_categories", {
+    p_items: items.map((item) => ({ id: item.id, sort_order: item.sortOrder })),
+  });
+  if (error) throw mapDatabaseError(error);
+  return { updatedCount: Number(data) };
 }
 
 export async function deleteCategory(
