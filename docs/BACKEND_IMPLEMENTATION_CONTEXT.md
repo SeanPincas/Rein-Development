@@ -2,7 +2,7 @@
 
 Last updated: October 21, 2026 (Asia/Manila).
 
-**Status: Phases 0–5 complete. Phase 6 implementation is in progress.**
+**Status: Phases 0–6 complete. Phase 7 authentication/OTP integration is implemented; live two-account acceptance checks remain.**
 
 This is the step-by-step execution reference for Codex's database and backend work. Read it with [README.md](../README.md) and the [project plan](PROJECT_PLAN.md). Checkboxes represent work to perform, not features already built. The user requested this context file before implementation.
 
@@ -13,7 +13,7 @@ This is the step-by-step execution reference for Codex's database and backend wo
 - **Shared boundary:** documented request/response types, authentication expectations, validation rules, error codes, and example payloads.
 - **Confirmed backend:** Next.js Route Handlers with TypeScript on Node.js.
 - **Confirmed database and accounts:** PostgreSQL hosted by Supabase, with Clerk authentication through `@clerk/nextjs` and Supabase's native Clerk third-party auth integration.
-- Hosting and the sign-in methods enabled within Clerk are not yet finalized.
+- Clerk development authentication, native Supabase trust, and Brevo signed email delivery are configured. Production hosting and sender/domain configuration are not finalized.
 
 Do not create frontend screens as part of this backend track. Inspect the workspace before each phase; Claude Code may have added the Next.js foundation. Reuse existing configuration and coordinate changes to shared files rather than reinitializing or overwriting the project.
 
@@ -43,8 +43,8 @@ Website metadata is optional enrichment. A valid tool must remain saveable when 
 | 3 | Verified sessions and common request/error handling | Phases 1–2 | Complete — live environment activation moves to integration |
 | 4 | Category and tool operations with transactional rules | Phases 2–3 | Complete |
 | 5 | Library read model and derived counts | Phase 4 | Complete |
-| 6 | Safe metadata and icon discovery | Phases 3–4 | Not started |
-| 7 | Backend integration and release readiness | Phases 0–6 | Queued after Phase 6 |
+| 6 | Safe metadata and icon discovery | Phases 3–4 | Complete |
+| 7 | Backend integration and release readiness | Phases 0–6 | In progress — OTP complete; two-account and production checks remain |
 
 Claude Code can work from the Phase 0 contract and fixtures while database work continues. Update a phase to complete only when its completion checks pass. Record a partial phase honestly if external configuration or another dependency is missing.
 
@@ -115,9 +115,9 @@ Proposed validation limits carried from the plan: tool name 100 characters, cate
 
 ### Steps
 
-1. [~] Added Clerk's Next.js 16 `src/proxy.ts`. `ClerkProvider` and visible auth controls remain coordinated frontend work for Claude Code; Clerk application selection/initialization is pending.
+1. [x] Added Clerk's Next.js 16 `src/proxy.ts`, `ClerkProvider`, visible auth controls, and the mandatory `/verify-email` flow.
 2. [x] Verify identity for protected Route Handlers through the shared authenticated wrapper using Clerk's async server-side `auth()` flow; never trust a cookie or submitted user ID directly.
-3. [~] Create user-scoped Supabase clients whose access token comes from the verified Clerk session. Live Clerk third-party provider/domain configuration remains pending.
+3. [x] Create user-scoped Supabase clients whose access token comes from the verified Clerk session. The hosted project uses Clerk's native third-party provider/domain integration.
 4. [x] Centralize payload parsing, schema validation, content-type checks, request size limits, and safe errors.
 5. [x] Protect cookie-authenticated mutations with an exact configured-origin check and reject unsafe redirect destinations.
 6. [x] Apply `private, no-store` and request identifiers to all responses from the shared route wrapper.
@@ -184,31 +184,31 @@ No complex calculations are currently needed. Do not persist counters that can d
 
 1. [x] Compare implemented routes against `docs/API_CONTRACT.md` and update examples to match verified behavior.
 2. [x] Run focused backend tests, type checks, migrations on a clean database, and the shared application build when available.
-3. [ ] Verify the complete backend journey: sign in, create category/tool, read library, edit, reassign, delete, and sign out.
+3. [ ] Verify the complete backend journey: sign in, pass the email OTP, create category/tool, read library, edit, reassign, delete, and sign out.
 4. [ ] Verify two-account isolation and cross-browser/session persistence using a development environment.
-5. [ ] Exercise duplicate saves, stale updates, database outages, metadata outages, and session expiry without silent data loss.
+5. [ ] Exercise duplicate saves, stale updates, database outages, metadata outages, OTP expiry/lockout, and session expiry without silent data loss.
 6. [x] Prepare an integration handoff for Claude Code: endpoint examples, types, errors, auth flow, icon fallback behavior, and known limitations.
 7. [x] Document required environment names, callback origins, migration order, rollback/forward-fix strategy, logging, and database backup/restore expectations for the selected host.
 8. [x] Review production configuration separately when hosting is selected. Record deployment status accurately; preparing instructions does not mean the app is deployed.
 
 **Completion check:** all required backend acceptance checks have evidence, the frontend contract matches the implementation, and remaining external dependencies are explicitly recorded. Frontend visual/accessibility acceptance belongs to Claude Code's track.
 
-### Added by Claude Code at the user's request (October 21, 2026): email OTP
+### Email OTP integration (October 21, 2026)
 
-- Migration `20261021090000_email_otp.sql`: private `email_otp_challenges` and `email_otp_sends`; security-definer RPCs `issue_email_otp`, `verify_email_otp`, `email_otp_status` bound to JWT `sub` + `sid`. pgTAP file `007_email_otp.test.sql` (19 assertions) — not yet run.
+- Migration `20261021090000_email_otp.sql` is applied locally and to the hosted Supabase project. It creates private `email_otp_challenges` and `email_otp_sends` tables plus security-definer RPCs `issue_email_otp`, `verify_email_otp`, and `email_otp_status` bound to JWT `sub` + `sid`. pgTAP file `007_email_otp.test.sql` passes; the full local suite is 7 files and 82 assertions.
 - Server: `src/lib/server/email-verification.ts` (code generation, HMAC hashing, signed cookie), `src/lib/server/email-otp.ts` (Clerk email lookup, Brevo send, RPC calls), routes under `src/app/api/verification/email/`.
 - `handleAuthenticatedApiRequest` now refuses unverified sessions with `EMAIL_UNVERIFIED` unless `requireVerifiedEmail: false`. `AuthenticatedSession`/`DatabaseContext` gained `sessionId`.
-- To activate: `npx supabase db push` from `backend/`, keep Brevo sender variables set, optionally set `EMAIL_OTP_SECRET`.
+- The Clerk-to-Brevo webhook remains responsible for Clerk's own emails; Rein's post-authentication OTP is sent directly through Brevo by `email-otp.ts`.
+- Required runtime values: keep Brevo sender variables set and optionally set a separate `EMAIL_OTP_SECRET`; otherwise the HMAC derives from `CLERK_SECRET_KEY`.
 
 ## 12. Session handoff record
 
 Update this section after each implementation session:
 
 - **Current phase:** Phase 7 integration and release readiness.
-- **Completed:** Phase 4 plus the owner-scoped `/api/library` endpoint, single-snapshot nested read model, stable ordering, empty categories, and derived category/library counts.
-- **Tests/checks:** prior Phase 5 evidence remains recorded; Phase 6 verification is recorded below with 9 frontend test files and 50 tests, clean migration replay, database lint, 6 pgTAP files and 63 assertions, and a successful Webpack build emitting six dynamic API routes.
-- **Pending external integration:** select/initialize the Clerk application, activate native Clerk/Supabase trust, and have Claude Code add the provider and visible authentication controls.
-- **Completed this session:** added bounded metadata/icon discovery, public-address DNS checks, pinned HTTP(S) transport, manual redirect validation, streamed decompression limits, signed metadata handoff tokens, database-backed user/IP rate limiting, origin-scoped icon caching, and the `/api/metadata` contract route. Added 50 passing frontend unit tests, migration lint, migration replay, and 63 passing pgTAP assertions; the final Webpack build passed.
-- **Immediate next action:** configure the development Clerk/Supabase applications, then run the authenticated two-account journey and failure matrix from `docs/PHASE_7_RELEASE_READINESS.md`.
+- **Completed:** Phases 4–6, the owner-scoped `/api/library` endpoint, metadata/icon discovery, Clerk/Supabase integration, Brevo delivery, and mandatory post-authentication email OTP.
+- **Tests/checks:** frontend tests pass (65 tests), frontend typecheck passes, local Supabase tests pass (7 pgTAP files and 82 assertions), hosted migration `20261021090000` is applied, and the production build passes.
+- **Pending external integration:** two-account authenticated journey, complete failure matrix, permanent public deployment, production Clerk/Brevo configuration, and backup/restore drill.
+- **Immediate next action:** run the complete authenticated journey and failure matrix from `docs/PHASE_7_RELEASE_READINESS.md`, then record evidence before production deployment.
 
 For each later phase, record actual commands/check outcomes, unresolved failures, migration identifiers, contract changes, and the next concrete task. Never place secrets or real user data in this log.

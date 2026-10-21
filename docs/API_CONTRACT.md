@@ -1,8 +1,8 @@
 # Rein — API contract (Phase 0 draft)
 
-Contract version: `2026-10-21-draft.6`.
+Contract version: `2026-10-21-draft.7`.
 
-This document is the integration boundary between the backend owned by Codex and the frontend owned by Claude Code. Category, tool, library, and metadata route contracts are implemented in the backend; live Clerk/Supabase configuration remains an integration task.
+This document is the integration boundary between the backend owned by Codex and the frontend owned by Claude Code. Category, tool, library, metadata, and post-authentication email OTP route contracts are implemented. Development Clerk/Supabase/Brevo integration is active; production hosting remains an integration task.
 
 ## Conventions
 
