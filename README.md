@@ -154,6 +154,7 @@ Browser extensions, bookmark imports, public sharing, AI recommendations, nested
 | `docs/PHASE_5_LIBRARY.md` | Implemented library read model, ordering/count definitions, query evidence, and frontend refresh handoff |
 | `docs/PHASE_6_METADATA.md` | Implemented safe metadata/icon discovery, rate limiting, signed save handoff, cache rules, migrations, tests, and frontend handoff |
 | `docs/PHASE_7_RELEASE_READINESS.md` | Phase 7 verification evidence, external Clerk/Supabase activation, operations checklist, and Claude Code handoff |
+| `docs/CLAUDE_CODE_FRONTEND_CONTEXT.md` | Frontend ownership, Clerk/Supabase setup, API integration, UI behavior, metadata flow, and verification handoff for Claude Code |
 | `frontend/` | Shared Next.js application: Claude Code owns frontend code; Codex owns Route Handlers and server-only backend modules |
 | `backend/` | Supabase configuration, migrations, seed data, pgTAP tests, and database tooling |
 
