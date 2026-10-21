@@ -22,7 +22,7 @@ docker compose down
 
 ## Live local development
 
-Use the development Compose file while changing the frontend. It mounts `frontend/` into the container and runs Next.js with Fast Refresh, so saved code and CSS changes appear in the browser without rebuilding or restarting Docker:
+Use the development Compose file while changing the frontend. It mounts `frontend/` into the container and runs Next.js webpack watch mode with polling and Fast Refresh, so saved code and CSS changes appear in the browser without rebuilding or restarting Docker:
 
 ```powershell
 docker compose -f docker-compose.dev.yml up
