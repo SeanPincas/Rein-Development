@@ -13,6 +13,10 @@ export type ApiErrorCode =
   | "VALIDATION_ERROR"
   | "UNSAFE_URL"
   | "RATE_LIMITED"
+  | "EMAIL_UNVERIFIED"
+  | "INVALID_CODE"
+  | "CODE_EXPIRED"
+  | "TOO_MANY_ATTEMPTS"
   | "INTERNAL_ERROR"
   | "SERVICE_UNAVAILABLE";
 
@@ -60,12 +64,49 @@ export class ApiError extends Error {
     });
   }
 
-  static rateLimited(retryAfterSeconds = 60): ApiError {
+  static rateLimited(
+    retryAfterSeconds = 60,
+    message = "Too many metadata requests. Try again shortly.",
+  ): ApiError {
     return new ApiError({
       code: "RATE_LIMITED",
       status: 429,
-      message: "Too many metadata requests. Try again shortly.",
+      message,
       details: { retryAfterSeconds },
+    });
+  }
+
+  static emailUnverified(): ApiError {
+    return new ApiError({
+      code: "EMAIL_UNVERIFIED",
+      status: 403,
+      message: "Verify your email to continue.",
+      details: { verifyPath: "/verify-email" },
+    });
+  }
+
+  static invalidCode(attemptsRemaining: number): ApiError {
+    return new ApiError({
+      code: "INVALID_CODE",
+      status: 422,
+      message: "That code is not correct.",
+      details: { attemptsRemaining },
+    });
+  }
+
+  static codeExpired(): ApiError {
+    return new ApiError({
+      code: "CODE_EXPIRED",
+      status: 422,
+      message: "This code has expired. Request a new one.",
+    });
+  }
+
+  static tooManyAttempts(): ApiError {
+    return new ApiError({
+      code: "TOO_MANY_ATTEMPTS",
+      status: 429,
+      message: "Too many incorrect codes. Request a new one.",
     });
   }
 

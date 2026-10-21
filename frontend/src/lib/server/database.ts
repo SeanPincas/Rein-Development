@@ -10,6 +10,7 @@ import { getServerEnvironment } from "@/lib/server/env";
 
 export type DatabaseContext = {
   userId: string;
+  sessionId: string | null;
   database: SupabaseClient;
 };
 
@@ -37,6 +38,7 @@ export async function getDatabaseContext(): Promise<DatabaseContext> {
 
   return {
     userId: session.userId,
+    sessionId: session.sessionId,
     database: createUserDatabaseClient(session),
   };
 }

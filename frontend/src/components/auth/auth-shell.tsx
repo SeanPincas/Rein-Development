@@ -14,8 +14,8 @@ type AuthShellProps = {
 /** Blueprint frame shared by the sign-in and sign-up pages. */
 export function AuthShell({ sheet, heading, description, children }: AuthShellProps) {
   return (
-    <div className="blueprint-grid relative isolate flex min-h-screen flex-col overflow-hidden">
-      <BlueprintBackdrop />
+    <div className="blueprint-grid relative isolate flex min-h-screen flex-col overflow-clip">
+      <BlueprintBackdrop preset="subtle" />
       <div className="relative mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-6 pb-10">
         <header className="flex items-center justify-between border-b border-rein-line py-5">
           <Link href="/" className="flex items-center gap-2.5 text-white">

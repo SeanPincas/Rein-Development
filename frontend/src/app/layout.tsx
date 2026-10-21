@@ -43,8 +43,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           appearance={clerkAppearance}
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
-          signInFallbackRedirectUrl="/library"
-          signUpFallbackRedirectUrl="/library"
+          // Every sign-in and sign-up must pass the email code before reaching the library.
+          signInForceRedirectUrl="/verify-email"
+          signUpForceRedirectUrl="/verify-email"
         >
           {children}
         </ClerkProvider>

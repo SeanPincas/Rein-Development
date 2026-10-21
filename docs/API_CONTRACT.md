@@ -1,6 +1,6 @@
 # Rein — API contract (Phase 0 draft)
 
-Contract version: `2026-10-21-draft.5`.
+Contract version: `2026-10-21-draft.6`.
 
 This document is the integration boundary between the backend owned by Codex and the frontend owned by Claude Code. Category, tool, library, and metadata route contracts are implemented in the backend; live Clerk/Supabase configuration remains an integration task.
 
@@ -275,6 +275,47 @@ Changing `url` without a valid metadata token clears stale discovered icon data 
 
 Returns HTTP 204. A stale record returns `STALE_VERSION` (409).
 
+## Email verification (post-sign-in code)
+
+Every Clerk sign-in and sign-up is followed by a mandatory email code. Clerk redirects to `/verify-email`; `proxy.ts` sends signed-out users to `/sign-in`, keeps unverified users out of `/library`, and sends already-verified users from `/verify-email` to `/library`.
+
+**Private API routes** (`/api/library`, `/api/categories*`, `/api/tools*`, `/api/metadata`) return `EMAIL_UNVERIFIED` (403) until the current Clerk session is verified. Only the three routes below run before verification.
+
+Rules: six random digits generated on the server; only an HMAC (keyed with a server secret, bound to the Clerk user ID and session ID) is stored; codes expire after 10 minutes, allow 5 attempts, are single use; resend at most once per 60 seconds per session and 5 times per hour per user. The code is never returned by any endpoint. Success sets the `rein_email_verified` cookie (HttpOnly, SameSite=Lax, Secure on HTTPS, 7 days) signed and bound to the same user and session. A new sign-in is a new Clerk session and must verify again.
+
+### `GET /api/verification/email/status`
+
+```json
+{
+  "data": {
+    "verified": false,
+    "verification": {
+      "sentTo": "se••@example.com",
+      "pending": true,
+      "expired": false,
+      "expiresAt": "2026-10-21T15:10:00.000Z",
+      "resendAvailableAt": "2026-10-21T15:01:00.000Z",
+      "attemptsRemaining": 5
+    }
+  },
+  "requestId": "01J..."
+}
+```
+
+`pending: false` means no code has been issued for this session yet.
+
+### `POST /api/verification/email/send`
+
+No body. Issues a new code (replacing any previous one for this session) and emails it through Brevo. Returns `{ "data": { "verification": … } }` with the same shape as above. `RATE_LIMITED` (429, `details.retryAfterSeconds`, `Retry-After`) for the cooldown or hourly cap; `SERVICE_UNAVAILABLE` (503) if the database or Brevo fails.
+
+### `POST /api/verification/email/verify`
+
+```json
+{ "code": "123456" }
+```
+
+Success: HTTP 200 `{ "data": { "verified": true, "redirectTo": "/library" } }` plus `Set-Cookie`. Failures: `VALIDATION_ERROR` (422) for a malformed code; `INVALID_CODE` (422, `details.attemptsRemaining`); `CODE_EXPIRED` (422) when expired, missing or already used; `TOO_MANY_ATTEMPTS` (429) after five wrong codes. Request a new code after the last two.
+
 ## Error catalogue
 
 | HTTP | Code | Meaning |
@@ -287,10 +328,14 @@ Returns HTTP 204. A stale record returns `STALE_VERSION` (409).
 | 409 | DUPLICATE_CATEGORY | The user already has the normalized category name |
 | 409 | DUPLICATE_TOOL_URL | The user already saved the normalized URL |
 | 409 | STALE_VERSION | Another request changed or deleted the resource |
+| 403 | EMAIL_UNVERIFIED | Signed in, but this session has not passed the email code |
 | 409 | CATEGORY_NOT_EMPTY | Reassignment is required before category deletion |
 | 422 | VALIDATION_ERROR | One or more fields violate the contract |
 | 422 | UNSAFE_URL | URL is syntactically valid but prohibited for server fetching |
-| 429 | RATE_LIMITED | Too many metadata requests |
+| 422 | INVALID_CODE | Email code is wrong; `details.attemptsRemaining` |
+| 422 | CODE_EXPIRED | Email code expired, missing or already used |
+| 429 | RATE_LIMITED | Too many metadata requests or email code sends |
+| 429 | TOO_MANY_ATTEMPTS | Five wrong email codes; request a new one |
 | 500 | INTERNAL_ERROR | Unexpected server failure with no sensitive details |
 | 503 | SERVICE_UNAVAILABLE | Required database/auth service is temporarily unavailable |
 

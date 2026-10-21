@@ -3,6 +3,9 @@
  * these tokens and classes give its card the blueprint look.
  */
 export const clerkAppearance = {
+  // Clerk's styles go in a lower cascade layer (declared in globals.css) so the
+  // Tailwind classes in `elements` below win over Clerk's defaults.
+  cssLayerName: "clerk",
   variables: {
     colorPrimary: "#a78bfa",
     colorPrimaryForeground: "#000000",

@@ -103,4 +103,33 @@ describe("route handlers", () => {
       error: { code: "UNAUTHENTICATED" },
     });
   });
+
+  it("refuses a signed-in but unverified session on private routes", async () => {
+    const logger = createLogger();
+    const handler = vi.fn(() => Response.json({ ok: true }));
+    mockGetDatabaseContext.mockResolvedValue({ userId: "user_a", sessionId: "sess_a", database: {} });
+
+    const response = await handleAuthenticatedApiRequest(
+      new Request("https://rein.example/api/library"),
+      handler,
+      { applicationOrigin: "https://rein.example", logger },
+    );
+
+    expect(response.status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+    expect(await response.json()).toMatchObject({ error: { code: "EMAIL_UNVERIFIED" } });
+  });
+
+  it("lets verification endpoints run before the email is verified", async () => {
+    const logger = createLogger();
+    mockGetDatabaseContext.mockResolvedValue({ userId: "user_a", sessionId: "sess_a", database: {} });
+
+    const response = await handleAuthenticatedApiRequest(
+      new Request("https://rein.example/api/verification/email/status"),
+      () => Response.json({ ok: true }),
+      { applicationOrigin: "https://rein.example", logger, requireVerifiedEmail: false },
+    );
+
+    expect(response.status).toBe(200);
+  });
 });

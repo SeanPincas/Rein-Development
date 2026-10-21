@@ -1,7 +1,8 @@
 import "server-only";
 
-import { createRequestId, toErrorResponse } from "@/lib/server/api-error";
+import { ApiError, createRequestId, toErrorResponse } from "@/lib/server/api-error";
 import { getDatabaseContext, type DatabaseContext } from "@/lib/server/database";
+import { isEmailVerifiedRequest } from "@/lib/server/email-verification";
 import { getServerEnvironment } from "@/lib/server/env";
 import {
   consoleApiLogger,
@@ -22,6 +23,11 @@ type Handler<TContext extends ApiRequestContext> = (
 
 type RouteHandlerOptions = {
   applicationOrigin?: string;
+  /**
+   * Private routes require the post-sign-in email code by default. Only the
+   * verification endpoints themselves opt out.
+   */
+  requireVerifiedEmail?: boolean;
   logger?: ApiLogger;
   now?: () => number;
 };
@@ -91,6 +97,14 @@ export async function handleAuthenticatedApiRequest(
     request,
     async ({ requestId }) => {
       const databaseContext = await getDatabaseContext();
+
+      if (
+        options.requireVerifiedEmail !== false &&
+        !isEmailVerifiedRequest(request, databaseContext.userId, databaseContext.sessionId)
+      ) {
+        throw ApiError.emailUnverified();
+      }
+
       return handler({ requestId, ...databaseContext });
     },
     options,

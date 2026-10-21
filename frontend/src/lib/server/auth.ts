@@ -6,6 +6,8 @@ import { ApiError } from "@/lib/server/api-error";
 
 export type AuthenticatedSession = {
   userId: string;
+  /** Clerk session ID (`sid`); email verification is bound to it. */
+  sessionId: string | null;
   getToken: () => Promise<string>;
 };
 
@@ -18,6 +20,7 @@ export async function requireAuthenticatedSession(): Promise<AuthenticatedSessio
 
   return {
     userId: session.userId,
+    sessionId: session.sessionId ?? null,
     getToken: async () => {
       const token = await session.getToken();
 

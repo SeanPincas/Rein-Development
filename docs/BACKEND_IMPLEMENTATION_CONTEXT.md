@@ -193,6 +193,13 @@ No complex calculations are currently needed. Do not persist counters that can d
 
 **Completion check:** all required backend acceptance checks have evidence, the frontend contract matches the implementation, and remaining external dependencies are explicitly recorded. Frontend visual/accessibility acceptance belongs to Claude Code's track.
 
+### Added by Claude Code at the user's request (October 21, 2026): email OTP
+
+- Migration `20261021090000_email_otp.sql`: private `email_otp_challenges` and `email_otp_sends`; security-definer RPCs `issue_email_otp`, `verify_email_otp`, `email_otp_status` bound to JWT `sub` + `sid`. pgTAP file `007_email_otp.test.sql` (19 assertions) — not yet run.
+- Server: `src/lib/server/email-verification.ts` (code generation, HMAC hashing, signed cookie), `src/lib/server/email-otp.ts` (Clerk email lookup, Brevo send, RPC calls), routes under `src/app/api/verification/email/`.
+- `handleAuthenticatedApiRequest` now refuses unverified sessions with `EMAIL_UNVERIFIED` unless `requireVerifiedEmail: false`. `AuthenticatedSession`/`DatabaseContext` gained `sessionId`.
+- To activate: `npx supabase db push` from `backend/`, keep Brevo sender variables set, optionally set `EMAIL_OTP_SECRET`.
+
 ## 12. Session handoff record
 
 Update this section after each implementation session:

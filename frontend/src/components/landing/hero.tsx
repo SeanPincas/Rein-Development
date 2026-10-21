@@ -14,9 +14,18 @@ export function Hero() {
           id="hero-title"
           className="m-0 text-[clamp(44px,7vw,84px)] font-bold leading-[0.98] tracking-[-0.045em]"
         >
-          Blueprint your
+          Save your{" "}
+          <s className="relative inline-block whitespace-nowrap text-white/55 no-underline">
+            poison
+            {/* Custom strike: a solid bar through the vertical centre, thicker than the default line-through. */}
+            <span
+              aria-hidden="true"
+              className="absolute -inset-x-[0.06em] top-[54%] h-[0.08em] -translate-y-1/2 -rotate-2 bg-rein-accent"
+            />
+            <span className="sr-only"> (crossed out)</span>
+          </s>
           <br />
-          <span className="text-rein-accent">toolkit.</span>
+          <span className="text-rein-accent">Dev Tools</span>
         </h1>
         <p className="m-0 max-w-[520px] text-lg leading-relaxed text-rein-muted">
           Save developer tools, design resources, courses and references once. Find them by name or

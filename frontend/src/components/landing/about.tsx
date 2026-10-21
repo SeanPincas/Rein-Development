@@ -7,9 +7,9 @@ export function About() {
     <section
       id="features"
       aria-labelledby="about-title"
-      className="flex scroll-mt-8 flex-wrap gap-12 border-t border-rein-line pt-16"
+      className="flex scroll-mt-10 flex-wrap gap-12 border-t border-rein-line pt-16"
     >
-      <div id="how-it-works" className="flex min-w-0 flex-[1_1_340px] scroll-mt-8 flex-col gap-6">
+      <div id="how-it-works" className="flex min-w-0 flex-[1_1_340px] scroll-mt-10 flex-col gap-6">
         <h2 id="about-title" className={sectionTitle}>
           What is <span className="text-rein-accent">Rein</span>?
         </h2>
