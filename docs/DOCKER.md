@@ -6,8 +6,10 @@ The root Dockerfile builds the Next.js application from `frontend/` using Next.j
 
 Ensure `frontend/.env.local` contains the required runtime values, then run from the repository root:
 
+The Clerk publishable key is needed while Next.js builds the browser bundle. Load the existing frontend environment file for Compose interpolation:
+
 ```powershell
-docker compose up --build
+docker compose --env-file frontend/.env.local up --build
 ```
 
 Open `http://localhost:3000`. Stop the service with:
