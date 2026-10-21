@@ -36,8 +36,12 @@ Local credentials live only in the ignored file `frontend/.env.local`. Never com
 - `APP_ORIGIN`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and `BREVO_SENDER_NAME` when custom Clerk email delivery is activated
+- `CLERK_WEBHOOK_SIGNING_SECRET` for the signed Clerk email webhook
 
 The root layout still needs the visible Clerk integration. Add `ClerkProvider` inside `<body>` and add the chosen sign-in, sign-up, and signed-in user controls without replacing the existing metadata or global theme setup.
+
+The backend email handoff is `POST /api/webhooks/clerk/email`. It verifies Clerk's signed `email.created` event and sends the original message through Brevo. Keep Clerk's **Delivered by Clerk** setting enabled until this endpoint is publicly reachable, its signing secret is configured, and a real Gmail delivery has been verified.
 
 ## API integration
 

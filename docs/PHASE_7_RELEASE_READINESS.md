@@ -21,7 +21,7 @@ Status: local backend verification complete. Live Clerk/Supabase integration and
 4. Start the application with the configured environment and verify sign-up/sign-in/sign-out through Claude Code's frontend controls.
 5. Using two separate Clerk accounts, create categories and tools, read the library, edit and reassign records, delete records, and confirm neither account can observe the other's rows.
 6. Exercise duplicate URL, duplicate category, stale version, invalid category reassignment, malformed JSON, cross-origin mutation, expired session, metadata timeout, unsafe URL, and rate-limit responses. Confirm the frontend maps stable error codes to field errors or Sonner toasts without displaying raw exceptions.
-7. Configure Brevo only after Clerk email delivery is working. Verify a sender/domain, store `BREVO_API_KEY` server-side, configure the signed Clerk email webhook, test a Gmail recipient, and only then disable “Delivered by Clerk” for the selected template.
+7. Configure Brevo only after Clerk email delivery is working. The backend now exposes `POST /api/webhooks/clerk/email`; verify a sender/domain, store `BREVO_API_KEY` server-side, create a signed Clerk webhook for `email.created`, test a Gmail recipient, and only then disable “Delivered by Clerk” for the selected template.
 
 ## Environment and operations
 
