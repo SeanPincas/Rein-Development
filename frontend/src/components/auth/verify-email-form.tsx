@@ -54,11 +54,14 @@ export function VerifyEmailForm() {
   const [busy, setBusy] = useState<"loading" | "sending" | "verifying" | "done" | null>("loading");
   const [locked, setLocked] = useState(false);
   const [resendAt, setResendAt] = useState<number>(0);
-  const [now, setNow] = useState(() => Date.now());
+  // Read the clock only after hydration; Date.now() during prerender makes this
+  // client component unstable in Next.js production builds.
+  const [now, setNow] = useState(0);
   const inputs = useRef<Array<HTMLInputElement | null>>([]);
   const started = useRef(false);
 
   useEffect(() => {
+    setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
