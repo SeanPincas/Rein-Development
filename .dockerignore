@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/out
+**/coverage
+**/.env*
+!**/.env.example
+backend/supabase/.temp
+.git
+.frontend-git-backup
+*.tsbuildinfo
+Dockerfile
+docker-compose.yml
