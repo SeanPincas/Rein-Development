@@ -67,14 +67,64 @@ body {
   mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade));
 }
 
-/* Slim purple horizontal scrollbar for the category icon picker. */
-.icon-picker-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(167 139 250 / 0.5) transparent;
+/*
+ * Rein scrollbars: dark track with a faint purple rule, rounded violet thumb that
+ * brightens on hover and turns lilac while dragged. Chromium/Safari use the
+ * ::-webkit-scrollbar pseudo-elements; Firefox (no custom shapes) gets matching
+ * colours through scrollbar-color. The standard properties are Firefox-only on
+ * purpose: when they are set, Chromium ignores the richer pseudo-element styles.
+ */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
-.icon-picker-scroll::-webkit-scrollbar { height: 6px; }
-.icon-picker-scroll::-webkit-scrollbar-thumb { background: rgb(167 139 250 / 0.5); border-radius: 9999px; }
-.icon-picker-scroll::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-track {
+  background: rgb(7 5 15 / 0.65);
+  box-shadow: inset 1px 0 0 rgb(167 139 250 / 0.14);
+}
+::-webkit-scrollbar-track:horizontal {
+  box-shadow: inset 0 1px 0 rgb(167 139 250 / 0.14);
+}
+::-webkit-scrollbar-thumb {
+  min-height: 48px;
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #a78bfa, #7c3aed) padding-box;
+  box-shadow: inset 0 0 0 1px rgb(237 233 254 / 0.18);
+}
+::-webkit-scrollbar-thumb:horizontal {
+  min-width: 48px;
+  background: linear-gradient(90deg, #a78bfa, #7c3aed) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #c4b5fd, #8b5cf6) padding-box;
+}
+::-webkit-scrollbar-thumb:horizontal:hover {
+  background: linear-gradient(90deg, #c4b5fd, #8b5cf6) padding-box;
+}
+::-webkit-scrollbar-thumb:active {
+  background: #ddd6fe padding-box;
+}
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button {
+  display: none;
+  background: transparent;
+}
+
+/* Icon picker: a slimmer, track-less horizontal bar. */
+.icon-picker-scroll::-webkit-scrollbar { height: 8px; }
+.icon-picker-scroll::-webkit-scrollbar-track { background: transparent; box-shadow: none; }
+.icon-picker-scroll::-webkit-scrollbar-thumb { border-width: 1px; }
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #8b5cf6 rgb(7 5 15 / 0.65);
+  }
+  .icon-picker-scroll {
+    scrollbar-color: #8b5cf6 transparent;
+  }
+}
 
 /* 96px major / 24px minor blueprint grid */
 .blueprint-grid {
@@ -167,9 +217,17 @@ body {
   100% { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
+/* Mobile top sheet slides down from the top edge. */
+.top-sheet[open] { animation: rein-top-sheet 320ms cubic-bezier(0.22, 1, 0.36, 1); }
+.top-sheet[open]::backdrop { animation: rein-fade 320ms ease; }
+@keyframes rein-top-sheet { from { transform: translateY(-100%); } to { transform: none; } }
+@keyframes rein-fade { from { opacity: 0; } to { opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .lava-blob { animation: none; transition: none; }
   .rein-enter-down,
-  .rein-enter-up { animation: none; }
+  .rein-enter-up,
+  .top-sheet[open],
+  .top-sheet[open]::backdrop { animation: none; }
 }

@@ -72,6 +72,7 @@ const lookupMessage: Record<string, string> = {
 export function AddToolDialog({ open, onOpenChange, categories, initialCategoryId, onSaved }: AddToolDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const urlRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
 
   const [url, setUrl] = useState("");
@@ -117,7 +118,7 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
-      urlRef.current?.focus();
+      nameRef.current?.focus();
     } else if (!open && dialog.open) {
       dialog.close();
     }
@@ -270,10 +271,11 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
       onClick={(event) => {
         if (event.target === event.currentTarget) requestClose();
       }}
-      className="m-auto w-[min(600px,calc(100%-32px))] max-h-[calc(100dvh-32px)] overflow-x-hidden overflow-y-auto rounded-[20px] border border-rein-border-strong bg-[#07050f] p-0 text-white shadow-[0_0_120px_rgb(124_58_237/0.3)] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
+      className="m-auto w-[min(600px,calc(100%-32px))] max-h-[calc(100dvh-32px)] overflow-hidden rounded-[20px] border border-rein-border-strong bg-[#07050f] p-0 text-white shadow-[0_0_120px_rgb(124_58_237/0.3)] backdrop:bg-black/70 backdrop:backdrop-blur-sm"
     >
-      <form onSubmit={submit} noValidate>
-        <div className="flex items-start justify-between gap-4 border-b border-dashed border-rein-border px-7 pb-5 pt-6">
+      {/* Header and footer stay put; only the fields scroll when the form grows. */}
+      <form onSubmit={submit} noValidate className="flex max-h-[calc(100dvh-32px)] flex-col">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-dashed border-rein-border px-7 pb-5 pt-6">
           <div className="flex flex-col gap-1.5">
             <p className={cx("m-0", eyebrow)}>NEW ENTRY / T.01</p>
             <h2 id={titleId} className="m-0 text-[26px] font-bold tracking-[-0.02em]">
@@ -290,7 +292,40 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
           </button>
         </div>
 
-        <div className="flex flex-col gap-[22px] px-7 py-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-[22px] overflow-y-auto overflow-x-hidden overscroll-contain px-7 py-6 [&>*]:shrink-0">
+          {/* Name */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between">
+              <label htmlFor="tool-name" className="text-sm font-semibold">
+                Name
+              </label>
+              {suggested && !edited.name && name && (
+                <span className="font-mono text-[11px] tracking-[0.08em] text-rein-accent">SUGGESTED · EDITABLE</span>
+              )}
+            </div>
+            <input
+              ref={nameRef}
+              id="tool-name"
+              value={name}
+              maxLength={LIMITS.name}
+              onChange={(event) => {
+                setName(event.target.value);
+                setEdited((e) => ({ ...e, name: true }));
+                if (errors.name) setErrors((e) => ({ ...e, name: undefined }));
+              }}
+              placeholder="e.g. Motion"
+              autoComplete="off"
+              aria-invalid={Boolean(errors.name) || undefined}
+              aria-describedby={errors.name ? "tool-name-error" : undefined}
+              className={cx(fieldClass(Boolean(errors.name)), "h-[46px]")}
+            />
+            {errors.name && (
+              <span id="tool-name-error" className="text-[13px] text-red-300">
+                {errors.name}
+              </span>
+            )}
+          </div>
+
           {/* URL + lookup status */}
           <div className="flex flex-col gap-2">
             <label htmlFor="tool-url" className="text-sm font-semibold">
@@ -360,38 +395,6 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
                 <span className="text-[13px] text-rein-soft">Paste a link and Rein will look up its icon and details.</span>
               )}
             </div>
-          </div>
-
-          {/* Name */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-baseline justify-between">
-              <label htmlFor="tool-name" className="text-sm font-semibold">
-                Name
-              </label>
-              {suggested && !edited.name && name && (
-                <span className="font-mono text-[11px] tracking-[0.08em] text-rein-accent">SUGGESTED · EDITABLE</span>
-              )}
-            </div>
-            <input
-              id="tool-name"
-              value={name}
-              maxLength={LIMITS.name}
-              onChange={(event) => {
-                setName(event.target.value);
-                setEdited((e) => ({ ...e, name: true }));
-                if (errors.name) setErrors((e) => ({ ...e, name: undefined }));
-              }}
-              placeholder="e.g. Motion"
-              autoComplete="off"
-              aria-invalid={Boolean(errors.name) || undefined}
-              aria-describedby={errors.name ? "tool-name-error" : undefined}
-              className={cx(fieldClass(Boolean(errors.name)), "h-[46px]")}
-            />
-            {errors.name && (
-              <span id="tool-name-error" className="text-[13px] text-red-300">
-                {errors.name}
-              </span>
-            )}
           </div>
 
           {/* Category */}
@@ -509,7 +512,7 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rein-line bg-black/60 px-7 py-[18px]">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-rein-line bg-black/60 px-7 py-[18px]">
           {confirmDiscard ? (
             <span role="alert" className="text-sm text-amber-200">
               Discard this tool? Your changes will be lost.

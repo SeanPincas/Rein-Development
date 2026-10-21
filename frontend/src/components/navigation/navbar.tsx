@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { HeaderAuthControls } from "@/components/auth/auth-controls";
 import { ReinMark } from "@/components/brand/rein-mark";
+import { MobileMenu } from "./mobile-menu";
 
 export type NavLink = {
   href: string;
@@ -33,10 +34,7 @@ export function Navbar({ links = [], children, actions }: NavbarProps) {
         {children ? (
           <div className="order-3 w-full md:order-none md:w-auto md:flex-1 md:px-6">{children}</div>
         ) : links.length > 0 && (
-          <nav
-            aria-label="Main"
-            className="order-3 flex w-full flex-wrap gap-x-7 gap-y-2 text-[15px] md:order-none md:w-auto"
-          >
+          <nav aria-label="Main" className="hidden gap-x-7 text-[15px] md:flex">
             {links.map((link) => (
               <a
                 key={link.href}
@@ -49,10 +47,16 @@ export function Navbar({ links = [], children, actions }: NavbarProps) {
           </nav>
         )}
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* With section links (landing), phones get a burger + top sheet instead of the inline items. */}
+        <div className={links.length > 0 && !children ? "hidden items-center gap-3 md:flex" : "flex items-center gap-2 sm:gap-3"}>
           {actions}
           <HeaderAuthControls />
         </div>
+        {links.length > 0 && !children && (
+          <div className="md:hidden">
+            <MobileMenu links={links} />
+          </div>
+        )}
       </div>
     </header>
   );

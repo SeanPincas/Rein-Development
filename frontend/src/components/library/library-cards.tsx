@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { PlusIcon, StarIcon as StarOutlineIcon } from "@heroicons/react/24/outline";
 import { StarIcon as StarSolidIcon } from "@heroicons/react/24/solid";
 import type { LibraryCategory, LibraryTool } from "@/lib/shared/library-types";
@@ -60,7 +61,7 @@ export function EmptyToolsSlot({
       {preview ? (
         <span aria-hidden="true" className={buttonClass}>
           <PlusIcon className="size-3.5 stroke-2" />
-          Add tool
+          Add Tool
         </span>
       ) : (
         <button
@@ -72,7 +73,7 @@ export function EmptyToolsSlot({
           className={buttonClass}
         >
           <PlusIcon aria-hidden="true" className="size-3.5 stroke-2" />
-          Add tool
+          Add Tool
         </button>
       )}
     </div>
@@ -84,11 +85,14 @@ export function CategoryCard({
   tools,
   onAddTool,
   onToggleFavorite,
+  headerAccessory,
 }: {
   category: LibraryCategory;
   tools: LibraryTool[];
   onAddTool?: () => void;
   onToggleFavorite?: (tool: LibraryTool) => void;
+  /** Extra control at the end of the header, e.g. the reorder handle. */
+  headerAccessory?: ReactNode;
 }) {
   const headingId = `category-${category.id}`;
   return (
@@ -106,6 +110,7 @@ export function CategoryCard({
         <span className="font-mono text-xs text-rein-label" aria-label={`${category.toolCount} tools`}>
           {category.toolCount}
         </span>
+        {headerAccessory}
       </header>
       {tools.length > 0 ? (
         <ul className="m-0 flex list-none flex-col p-2 pb-2.5">

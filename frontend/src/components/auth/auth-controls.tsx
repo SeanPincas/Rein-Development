@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserButton, useAuth } from "@clerk/nextjs";
+import { SignOutButton, UserButton, useAuth } from "@clerk/nextjs";
 import { buttonStyles } from "@/components/ui/styles";
 
 /** Navbar account area: links to the auth pages when signed out, library + account menu when signed in. */
@@ -44,5 +44,37 @@ export function StartLibraryButton({ tone = "primary" }: { tone?: "primary" | "w
     <Link href={signedIn ? "/library" : "/sign-up"} className={buttonStyles[tone]}>
       {signedIn ? "Open your library" : "Start your library"} <span aria-hidden="true">→</span>
     </Link>
+  );
+}
+
+/** Full-width account actions for the mobile top sheet. */
+export function MobileAuthActions({ onNavigate }: { onNavigate?: () => void }) {
+  const { isLoaded, isSignedIn } = useAuth();
+
+  if (isLoaded && isSignedIn) {
+    return (
+      // Sign out instead of <UserButton>: its popover would open behind the modal sheet.
+      <div className="flex flex-col gap-3">
+        <Link href="/library" onClick={onNavigate} className={`${buttonStyles.primary} justify-center`}>
+          Open library <span aria-hidden="true">→</span>
+        </Link>
+        <SignOutButton redirectUrl="/">
+          <button type="button" className={`${buttonStyles.outline} justify-center`}>
+            Sign out
+          </button>
+        </SignOutButton>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <Link href="/sign-up" onClick={onNavigate} className={`${buttonStyles.primary} justify-center`}>
+        Get started
+      </Link>
+      <Link href="/sign-in" onClick={onNavigate} className={`${buttonStyles.outline} justify-center`}>
+        Sign in
+      </Link>
+    </div>
   );
 }

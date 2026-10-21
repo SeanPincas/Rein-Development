@@ -45,7 +45,7 @@ Goal: ship the visible Rein experience on top of the verified backend contract, 
 | F2 | Auth: `ClerkProvider`, `/sign-up` and `/sign-in` pages using Clerk's card restyled to the blueprint theme, navbar account controls | Built — awaiting live sign-up test |
 | F2b | Mandatory email code after every sign-in/sign-up: `/verify-email`, Brevo delivery, session-bound verified cookie, `/library` and private APIs gated | Built — awaiting migration push and live test |
 | F3 | Library: staggered three-column bento grid from `GET /api/library`, six starter categories for new accounts, empty/loading/error states, search (⌘K) and category filter, refresh on refocus | Built — awaiting live test; Add Tool button disabled until F4 |
-| F4 | Add/Edit Tool: form with metadata lookup, category create/rename/delete with reassignment, Sonner toasts | Not started |
+| F4 | Add/Edit Tool: form with metadata lookup, category create/rename/delete with reassignment, Sonner toasts | In progress — Add Tool modal (metadata lookup, suggestions, existing/new category) and Create Category modal built; edit/delete and rename/reassign next |
 | F5 | Polish and verification: light theme, keyboard and screen-reader pass, responsive review, two-account journey | Not started |
 
 Design tokens live in `frontend/src/app/globals.css`; the Clerk theme in `frontend/src/components/auth/clerk-appearance.ts`; landing copy in `frontend/src/components/landing/content.ts`.
@@ -208,3 +208,4 @@ Browser extensions, bookmark imports, public sharing, AI recommendations, nested
 | October 21, 2026 | Completed Phase 5: added the private single-snapshot library endpoint with empty categories, nested tools, stable ordering, and derived counts. |
 | October 21, 2026 | Approved the Stepped R logo and black/purple blueprint direction. Claude Code built the landing page and Clerk-themed `/sign-up` and `/sign-in` pages (stages F0–F2). |
 | October 21, 2026 | User requested a mandatory post-authentication email OTP and asked Claude Code to implement it end to end, including the backend (migration `20261021090000_email_otp`, `/api/verification/email/*`, route-handler and proxy gating). Codex should review it as part of the backend track. |
+| October 22, 2026 | Claude Code added drag-and-drop and keyboard category reordering on `/library`, persisted through `PATCH /api/categories/order` with optimistic updates, a serialised request queue and revert-on-failure. |
