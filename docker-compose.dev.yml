@@ -16,7 +16,7 @@ services:
       - rein_next:/app/.next
     ports:
       - "3000:3000"
-    command: sh -c "npm install && npx next dev --webpack --hostname 0.0.0.0"
+    command: sh -c "npm install && npm run dev -- --webpack --hostname 0.0.0.0"
 
 volumes:
   rein_node_modules:

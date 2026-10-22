@@ -81,6 +81,7 @@ type Tool = {
   description: string;
   iconUrl: string | null;
   iconStatus: "ready" | "fallback" | "unavailable";
+  iconSlug: string | null;
   isFavorite: boolean;
   version: number;
   createdAt: string;
@@ -99,6 +100,7 @@ Internal fields such as `user_id`, normalized names/URLs, signing data, and data
 | Tool name | Trimmed; 1–100 characters |
 | Tool URL | Absolute HTTP/HTTPS URL; at most 2048 characters; no embedded credentials |
 | Description | Required and trimmed; 1–280 characters |
+| Simple Icons slug | Optional lowercase kebab-case slug from the bundled Simple Icons catalogue; at most 100 characters |
 | Version | Positive integer matching the record most recently read by the client |
 
 Duplicate detection normalizes hostname casing, removes default ports, and treats an empty root path as `/`. It preserves path case, meaningful trailing slashes, query strings, and fragments. Different meaningful paths on one domain remain saveable.
@@ -133,6 +135,7 @@ Returns every owned category, including empty categories, with nested tools. Cat
             "description": "A searchable icon library.",
             "iconUrl": null,
             "iconStatus": "fallback",
+            "iconSlug": null,
             "isFavorite": false,
             "version": 1,
             "createdAt": "2026-10-21T08:10:00.000Z",
@@ -171,8 +174,8 @@ Success returns HTTP 200 with a short-lived, opaque handoff token:
       "finalUrl": "https://example.com/docs/",
       "title": "Example Documentation",
       "description": "Documentation for the example service.",
-      "iconUrl": "https://example.com/favicon.ico",
-      "iconStatus": "ready",
+      "iconUrl": null,
+      "iconStatus": "fallback",
       "metadataToken": "opaque.signed.value"
     }
   },
@@ -180,11 +183,11 @@ Success returns HTTP 200 with a short-lived, opaque handoff token:
 }
 ```
 
-`title` and `description` are editable suggestions. `iconStatus` is `ready` when a validated raster image was found, `fallback` when the lookup succeeded but no usable icon was found, and `unavailable` when the page response was not usable. The frontend must correlate the response with the URL that initiated it and discard a response after the URL changes. Icon `<img>` elements should use `referrerPolicy="no-referrer"` and always provide an initial/fallback visual when the remote image fails to load.
+`title` and `description` are editable suggestions. **Icons are not fetched** (decision of October 22, 2026): the frontend matches the tool's hostname to a bundled Simple Icons logo and otherwise shows a letter tile, so the response always carries `iconUrl: null` and `iconStatus: "fallback"`. Both fields remain in the response and in the tool shape for compatibility. The frontend must correlate the response with the URL that initiated it and discard a response after the URL changes.
 
 The server validates every redirect and DNS answer, blocks private/loopback/link-local/reserved destinations, permits only HTTP(S) on the matching default port, sends no target cookies or credentials, and bounds the total request budget, redirects, HTML bytes, decompressed bytes, icon candidates, and icon bytes. The endpoint is rate-limited by authenticated user and request address through the database-backed `consume_metadata_rate_limit` function. It returns `UNSAFE_URL`, `RATE_LIMITED`, `SERVICE_UNAVAILABLE`, or a safe generic error when discovery cannot proceed.
 
-The frontend may submit `metadataToken` with `POST /api/tools` or a URL-changing `PATCH /api/tools/:id`. The backend verifies the token signature, expiry, authenticated user, and exact source URL before accepting its icon result. Metadata discovery checks declared favicon links, `/favicon.ico`, `/favicon.png`, `/favicon.svg`, and common Apple touch icon paths. PNG, JPEG, WebP, ICO, and SVG image responses can be displayed as the saved tool icon. Missing, expired, mismatched, or tampered tokens do not block a valid manual save; the tool is stored with `iconStatus: "fallback"` and no client-supplied icon URL is trusted.
+The frontend may submit `metadataToken` with `POST /api/tools` or a URL-changing `PATCH /api/tools/:id`. The backend verifies the token signature, expiry, authenticated user, and exact source URL; since lookups no longer fetch icons, a valid token always yields `iconUrl: null` and `iconStatus: "fallback"`. Missing, expired, mismatched, or tampered tokens do not block a valid manual save, and no client-supplied icon URL is trusted.
 
 ## Categories
 
@@ -236,6 +239,7 @@ Use exactly one category form.
   "name": "Example Icons",
   "url": "https://example.com/icons",
   "description": "A searchable icon library.",
+  "iconSlug": "github",
   "category": { "id": "d6f93d61-7b02-4bb0-858c-901f7075a5e7" },
   "metadataToken": "optional-opaque-token"
 }
@@ -279,11 +283,12 @@ At least one mutable field is required. Omitted fields remain unchanged. Set `is
   "name": "Example Icons Pro",
   "categoryId": "b091dbab-f8de-4e4b-b52a-28c3d149a891",
   "isFavorite": true,
+  "iconSlug": "github",
   "version": 1
 }
 ```
 
-Changing `url` without a valid metadata token clears stale discovered icon data to fallback. Returns HTTP 200 with the updated tool. Version conflicts return `STALE_VERSION` (409).
+Setting `iconSlug` stores the selected bundled Simple Icons brand and clears any legacy remote icon URL. Set it to `null` to return to the hostname/letter fallback. Changing `url` without a selected `iconSlug` clears stale icon data to fallback. Returns HTTP 200 with the updated tool. Version conflicts return `STALE_VERSION` (409).
 
 ### `DELETE /api/tools/:id?version=1`
 

@@ -1,6 +1,6 @@
 # Rein — backend implementation context
 
-Last updated: October 21, 2026 (Asia/Manila).
+Last updated: October 22, 2026 (Asia/Manila).
 
 **Status: Phases 0–6 complete. Phase 7 authentication/OTP integration is implemented; live two-account acceptance checks remain.**
 
@@ -19,7 +19,7 @@ Do not create frontend screens as part of this backend track. Inspect the worksp
 
 ## 2. Backend responsibilities
 
-The backend must let an authenticated user save, read, edit, and delete tools; create and manage categories; and attempt website icon discovery. All records are private to their owner. A tool belongs to exactly one category in the first release.
+The backend must let an authenticated user save, read, edit, and delete tools; create and manage categories; and persist a selected bundled Simple Icons brand for each tool. Website metadata remains optional enrichment. All records are private to their owner. A tool belongs to exactly one category in the first release.
 
 The principal flows are:
 
@@ -32,7 +32,7 @@ Metadata: session -> rate limit -> safe public fetch -> suggestions or fallback
 Favorite: session -> owner/version check -> update is_favorite -> library priority order
 ```
 
-Website metadata is optional enrichment. A valid tool must remain saveable when the target site is unreachable or metadata lookup fails. Never trust a client-submitted owner ID, normalized URL, hostname, metadata status, or arbitrary icon URL as authoritative server data.
+Website metadata is optional enrichment. A valid tool must remain saveable when the target site is unreachable or metadata lookup fails. Never trust a client-submitted owner ID, normalized URL, hostname, metadata status, arbitrary icon URL, or unvalidated icon slug as authoritative server data. The server accepts only the constrained lowercase slug format; the frontend catalogue is the source of available brand choices.
 
 ## 3. Phase tracker and dependencies
 
@@ -101,7 +101,7 @@ Document DELETE request encoding explicitly rather than assuming every client se
 
 1. [x] Add versioned SQL migrations under `supabase/migrations/`.
 2. [x] Define `categories`: UUID id, text Clerk user_id, name, normalized_name, icon_key, sort_order, version, created_at, updated_at.
-3. [x] Define `tools`: UUID id, text Clerk user_id, category_id, name, original URL, normalized_url, hostname, description, icon_url, icon_status, version, created_at, updated_at.
+3. [x] Define `tools`: UUID id, text Clerk user_id, category_id, name, original URL, normalized_url, hostname, description, icon_url, icon_status, icon_slug, version, created_at, updated_at.
 4. [x] Use Clerk as the only application identity store. Do not create credentials or duplicate Clerk user records in PostgreSQL unless a later profile feature requires synchronized data.
 5. [x] Add required fields, limits, allowed icon status values, and unique constraints for owner/category-name and owner/normalized-URL.
 6. [x] Enforce category ownership in the database with `(category_id, user_id)` referencing the category's unique `(id, user_id)` key.
@@ -172,13 +172,15 @@ No complex calculations are currently needed. Do not persist counters that can d
 3. [x] Validate schemes, ports, credentials, DNS answers, IPv4/IPv6 addresses, redirects, and icon destinations. Block private, loopback, link-local, and reserved addresses.
 4. [x] Use a Node HTTP(S) transport whose custom lookup is pinned to validated addresses while retaining the original hostname for TLS verification. The implementation does not perform an unrestricted fetch after a DNS pre-check.
 5. [x] Enforce a 5-second total budget, 3 redirects, 1 MB decompressed HTML, 512 KB per icon, 2 MB compressed body, 1-second DNS work, 8 icon candidates, and bounded text parsing.
-6. [x] Parse HTML without running remote scripts. Extract title/description as plain text and resolve permitted icon links, then try `/favicon.ico`.
+6. [x] Parse HTML without running remote scripts. Extract title/description as plain text. Icon selection is handled by the bundled Simple Icons catalogue rather than remote favicon fetching.
 7. [x] Validate image content type and destination. Open Graph images are not considered, and file extensions are not trusted.
 8. [x] Finalize the Phase 0 save handoff: issue a signed, short-lived result bound to the authenticated user and exact source URL. Manually saving without metadata remains valid.
 9. [x] On tool URL edits, clear or replace stale icon data. Ignore untrusted client claims that metadata was verified.
 10. [x] Return explicit ready/fallback/unavailable states and bounded suggestions. The server never overwrites user-entered name or description fields from a suggestion.
-11. [x] Cache only the validated public icon URL by source origin for a bounded in-process TTL; title/description/page responses are never cached or logged. Use no target cookies or credentials.
+11. [x] Keep metadata discovery bounded and avoid caching or logging private page responses. No target cookies or credentials are used; brand SVGs are served from the local catalogue.
 12. [x] Document frontend expectations: URL-response correlation, editable suggestions, image error fallback, and no-referrer icon loading. Claude Code implements that behavior.
+
+Simple Icons handoff: the Add Tool flow may submit `iconSlug` with a lowercase kebab-case brand slug. The database stores this in `tools.icon_slug`, forces `icon_status` to `ready`, and clears legacy `icon_url`. The library response returns `iconSlug`; the frontend renders the matching local SVG and falls back to hostname matching or a letter tile when the field is null.
 
 **Completion check:** deterministic fixtures cover successful icons, relative links, redirects, missing metadata, timeouts, oversized/decompression responses, unsafe addresses, DNS rebinding attempts, and stale source URLs. Lookup failure never blocks valid manual saves. Limit real public-network smoke checks to what is needed after fixture tests pass.
 
