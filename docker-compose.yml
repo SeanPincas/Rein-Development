@@ -1,22 +1,4 @@
 services:
-  rein:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      secrets:
-        - frontend_env
-    env_file:
-      - ./frontend/.env.local
-    environment:
-      NODE_ENV: production
-      HOSTNAME: 0.0.0.0
-      PORT: 3000
-    ports:
-      # Development owns localhost:3000. Production is intentionally separate
-      # so starting one can never fail because the other is running.
-      - "${REIN_PROD_PORT:-3001}:3000"
-    restart: unless-stopped
-
   rein-dev:
     image: node:22-alpine
     working_dir: /app
@@ -35,10 +17,6 @@ services:
     ports:
       - "3000:3000"
     command: sh -c "npm install && npx next dev --webpack --hostname 0.0.0.0"
-
-secrets:
-  frontend_env:
-    file: ./frontend/.env.local
 
 volumes:
   rein_node_modules:
