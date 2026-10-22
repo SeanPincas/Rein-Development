@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ReinMark } from "@/components/brand/rein-mark";
+import { ReinWordmark } from "@/components/brand/rein-wordmark";
 import { BlueprintBackdrop } from "@/components/landing/blueprint-backdrop";
 import { eyebrow } from "@/components/ui/styles";
 
@@ -18,9 +18,8 @@ export function AuthShell({ sheet, heading, description, children }: AuthShellPr
       <BlueprintBackdrop preset="subtle" />
       <div className="relative mx-auto flex w-full max-w-[1200px] flex-1 flex-col px-6 pb-10">
         <header className="flex items-center justify-between border-b border-rein-line py-5">
-          <Link href="/" className="flex items-center gap-2.5 text-white">
-            <ReinMark size={36} />
-            <span className="text-[22px] font-semibold tracking-[-0.03em]">Rein</span>
+          <Link href="/" className="flex items-center text-white">
+            <ReinWordmark className="text-[24px] sm:text-[27px]" />
           </Link>
           <Link href="/" className="text-[15px] text-violet-300 transition-colors hover:text-white">
             ← Back to home

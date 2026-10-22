@@ -11,23 +11,29 @@ import { ApiError } from "@/lib/server/api-error";
 import { normalizeToolUrl, type NormalizedToolUrl } from "@/lib/validation/library";
 
 const MAX_HTML_BYTES = 1024 * 1024;
-const MAX_ICON_BYTES = 512 * 1024;
 const MAX_COMPRESSED_BYTES = 2 * 1024 * 1024;
 const MAX_REDIRECTS = 3;
-const MAX_ICON_CANDIDATES = 8;
 const LOOKUP_TIMEOUT_MS = 1_000;
+/** Cap for one page fetch, redirects included. */
 const TOTAL_TIMEOUT_MS = 5_000;
+const MAX_ADDRESS_ATTEMPTS = 3;
+/** Connection-level failures worth retrying on the next resolved address. */
+const RETRYABLE_CONNECT_ERRORS = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+  "EADDRNOTAVAIL",
+  "EAFNOSUPPORT",
+  "ETIMEDOUT",
+]);
 const TOKEN_TTL_SECONDS = 10 * 60;
-const ICON_CACHE_TTL_MS = 60 * 60 * 1000;
-const ICON_CACHE_MAX_ENTRIES = 256;
-const COMMON_ICON_PATHS = [
-  "/favicon.ico",
-  "/favicon.png",
-  "/favicon.svg",
-  "/apple-touch-icon.png",
-  "/apple-touch-icon-precomposed.png",
-] as const;
 
+/**
+ * Kept for the API/DB contract only. Icons now come from Simple Icons on the
+ * client (src/lib/shared/brand-icon-match.ts); the lookup never fetches favicons,
+ * so results always carry `iconUrl: null, iconStatus: "fallback"`.
+ */
 export type MetadataStatus = "ready" | "fallback" | "unavailable";
 
 export type MetadataResult = {
@@ -94,10 +100,16 @@ async function resolvePublicAddresses(hostname: string, deadline: number): Promi
     return [{ address: hostname, family: isIPv4(hostname) ? 4 : 6 }];
   }
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const result = await Promise.race([
-    lookup(hostname, { all: true, verbatim: true }),
-    new Promise<never>((_, reject) => setTimeout(() => reject(ApiError.serviceUnavailable()), LOOKUP_TIMEOUT_MS)),
-  ]);
+    lookup(hostname, { all: true, verbatim: true }).catch(() => {
+      // ENOTFOUND / EAI_AGAIN (typo'd or offline host) is not a server fault.
+      throw ApiError.serviceUnavailable();
+    }),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(ApiError.serviceUnavailable()), Math.min(LOOKUP_TIMEOUT_MS, deadline - Date.now()));
+    }),
+  ]).finally(() => clearTimeout(timer));
   const addresses = result.map((entry) => ({ address: entry.address, family: entry.family as 4 | 6 }));
   if (!addresses.length || addresses.some((entry) => isUnsafeAddress(entry.address))) throw ApiError.unsafeUrl();
   return addresses;
@@ -142,9 +154,39 @@ export async function decompressResponse(body: Buffer, encoding: string | undefi
   });
 }
 
+/** IPv4 first (stable): hosts without IPv6 routes, e.g. many Docker networks, fail fast otherwise. */
+export function orderAddresses(addresses: ResolvedAddress[]): ResolvedAddress[] {
+  return [...addresses].sort((a, b) => (a.family === 4 ? 0 : 1) - (b.family === 4 ? 0 : 1));
+}
+
+/**
+ * Tries up to MAX_ADDRESS_ATTEMPTS resolved addresses, moving on only for
+ * connection-level failures. Any other non-ApiError (TLS, protocol…) and an
+ * exhausted list surface as SERVICE_UNAVAILABLE rather than a 500.
+ */
+export async function connectWithFallback<T>(
+  addresses: ResolvedAddress[],
+  attempt: (address: ResolvedAddress) => Promise<T>,
+  deadline: number,
+): Promise<T> {
+  for (const address of orderAddresses(addresses).slice(0, MAX_ADDRESS_ATTEMPTS)) {
+    if (Date.now() >= deadline) break;
+    try {
+      return await attempt(address);
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (!RETRYABLE_CONNECT_ERRORS.has((error as NodeJS.ErrnoException)?.code ?? "")) throw ApiError.serviceUnavailable();
+    }
+  }
+  throw ApiError.serviceUnavailable();
+}
+
 async function requestResolved(options: RequestOptions, addresses: ResolvedAddress[]): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
+  return connectWithFallback(addresses, (address) => requestAddress(options, address), options.deadline);
+}
+
+async function requestAddress(options: RequestOptions, address: ResolvedAddress): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
   const remaining = Math.max(1, Math.min(TOTAL_TIMEOUT_MS, options.deadline - Date.now()));
-  const address = addresses[0];
   const requestFactory = options.url.protocol === "https:" ? httpsRequest : httpRequest;
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -204,12 +246,19 @@ export type MetadataTransport = {
 
 const defaultTransport: MetadataTransport = { resolve: resolvePublicAddresses, request: requestResolved };
 
+export type FetchOptions = {
+  maxBytes: number;
+  accept: string;
+  /** Absolute epoch-ms deadline; never extended past TOTAL_TIMEOUT_MS from now. */
+  deadline?: number;
+};
+
 export async function fetchBounded(
   url: URL,
-  options: { maxBytes: number; accept: string },
+  options: FetchOptions,
   transport: MetadataTransport = defaultTransport,
 ): Promise<MetadataFetchResponse> {
-  const deadline = Date.now() + TOTAL_TIMEOUT_MS;
+  const deadline = Math.min(options.deadline ?? Number.POSITIVE_INFINITY, Date.now() + TOTAL_TIMEOUT_MS);
   let current = new URL(url);
   for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects += 1) {
     if (!["http:", "https:"].includes(current.protocol) || current.username || current.password) throw ApiError.unsafeUrl();
@@ -239,11 +288,13 @@ function cleanText(value: string | undefined): string | null {
 }
 
 function readAttribute(tag: string, name: string): string | null {
-  const match = tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']{1,2048})["']`, "iu"));
-  return match ? decodeHtml(match[1]) : null;
+  // Whole attribute name (not `data-rel`), value double-, single- or un-quoted.
+  const match = tag.match(new RegExp(`[\\s"'/]${name}\\s*=\\s*(?:"([^"]{0,2048})"|'([^']{0,2048})'|([^\\s"'=<>\`]{1,2048}))`, "iu"));
+  const value = match ? match[1] ?? match[2] ?? match[3] : undefined;
+  return value ? decodeHtml(value) : null;
 }
 
-export function extractMetadata(html: string): { title: string | null; description: string | null; icons: string[] } {
+export function extractMetadata(html: string): { title: string | null; description: string | null } {
   const safeHtml = html.replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script\s*>|<style\b[\s\S]*?<\/style\s*>|<noscript\b[\s\S]*?<\/noscript\s*>/giu, " ");
   const title = cleanText(safeHtml.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/iu)?.[1]);
   let description: string | null = null;
@@ -251,56 +302,10 @@ export function extractMetadata(html: string): { title: string | null; descripti
     const name = readAttribute(tag, "name")?.toLowerCase();
     if (name === "description") description = cleanText(readAttribute(tag, "content") ?? undefined);
   }
-  const icons: string[] = [];
-  for (const tag of safeHtml.match(/<link\b[^>]*>/giu) ?? []) {
-    const rel = (readAttribute(tag, "rel") ?? "").toLowerCase().split(/\s+/u);
-    const href = readAttribute(tag, "href");
-    if (href && rel.some((value) => value === "icon" || value === "shortcut" || value === "apple-touch-icon" || value === "mask-icon")) icons.push(href);
-    if (icons.length >= MAX_ICON_CANDIDATES) break;
-  }
-  return { title, description, icons };
+  return { title, description };
 }
 
-type MetadataFetcher = (url: URL, options: { maxBytes: number; accept: string }) => Promise<MetadataFetchResponse>;
-
-type CachedIcon = { iconUrl: string; expiresAt: number };
-const iconCache = new Map<string, CachedIcon>();
-
-function cachedIcon(origin: string): string | null {
-  const cached = iconCache.get(origin);
-  if (!cached || cached.expiresAt <= Date.now()) {
-    iconCache.delete(origin);
-    return null;
-  }
-  return cached.iconUrl;
-}
-
-function rememberIcon(origin: string, iconUrl: string): void {
-  if (iconCache.size >= ICON_CACHE_MAX_ENTRIES && !iconCache.has(origin)) {
-    const oldest = iconCache.keys().next().value;
-    if (oldest) iconCache.delete(oldest);
-  }
-  iconCache.set(origin, { iconUrl, expiresAt: Date.now() + ICON_CACHE_TTL_MS });
-}
-
-async function findIcon(baseUrl: URL, candidates: string[], fetcher: MetadataFetcher): Promise<{ iconUrl: string | null; status: MetadataStatus }> {
-  const cached = cachedIcon(baseUrl.origin);
-  const urls = [...(cached ? [cached] : []), ...candidates, ...COMMON_ICON_PATHS].slice(0, MAX_ICON_CANDIDATES + 1);
-  for (const candidate of urls) {
-    let icon: URL;
-    try { icon = new URL(candidate, baseUrl); } catch { continue; }
-    if (icon.protocol !== "http:" && icon.protocol !== "https:") continue;
-    try {
-      const response = await fetcher(icon, { maxBytes: MAX_ICON_BYTES, accept: "image/*" });
-      const contentType = response.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
-      if (response.status >= 200 && response.status < 300 && contentType?.startsWith("image/")) {
-        rememberIcon(baseUrl.origin, response.finalUrl);
-        return { iconUrl: response.finalUrl, status: "ready" };
-      }
-    } catch { /* try the next bounded candidate */ }
-  }
-  return { iconUrl: null, status: "fallback" };
-}
+type MetadataFetcher = (url: URL, options: FetchOptions) => Promise<MetadataFetchResponse>;
 
 function tokenSecret(): string {
   const secret = process.env.METADATA_TOKEN_SECRET || process.env.CLERK_SECRET_KEY;
@@ -334,13 +339,9 @@ export async function discoverMetadata(userId: string, inputUrl: string, fetcher
   validatePort(source);
   const response = await fetcher(source, { maxBytes: MAX_HTML_BYTES, accept: "text/html,application/xhtml+xml" });
   const contentType = response.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
-  if (response.status < 200 || response.status >= 300 || (contentType !== "text/html" && contentType !== "application/xhtml+xml")) {
-    const result = { finalUrl: response.finalUrl, title: null, description: null, iconUrl: null, iconStatus: "unavailable" as const };
-    return { sourceUrl: normalized.url, ...result, metadataToken: issueMetadataToken(userId, normalized.url, result) };
-  }
-  const parsed = extractMetadata(response.body.toString("utf8"));
-  const icon = await findIcon(new URL(response.finalUrl), parsed.icons, fetcher);
-  const result = { finalUrl: response.finalUrl, title: parsed.title, description: parsed.description, iconUrl: icon.iconUrl, iconStatus: icon.status };
+  const isHtml = response.status >= 200 && response.status < 300 && (contentType === "text/html" || contentType === "application/xhtml+xml");
+  const parsed = isHtml ? extractMetadata(response.body.toString("utf8")) : { title: null, description: null };
+  const result = { finalUrl: response.finalUrl, ...parsed, iconUrl: null, iconStatus: "fallback" as const };
   return { sourceUrl: normalized.url, ...result, metadataToken: issueMetadataToken(userId, normalized.url, result) };
 }
 

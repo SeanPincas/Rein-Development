@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { CheckCircleIcon, ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { GlobeAltIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { toast } from "sonner";
 import { buttonStyles, eyebrow } from "@/components/ui/styles";
 import { cx } from "@/lib/design";
 import { defaultCategoryIconKey, type CategoryIconKey } from "@/lib/shared/icon-library";
-import type { LibraryCategory } from "@/lib/shared/library-types";
+import type { LibraryCategory, LibraryTool } from "@/lib/shared/library-types";
+import { buildCreateToolPayload, buildToolUpdatePayload } from "@/lib/shared/tool-payload";
+import { BrandGlyph, useBrandSlug } from "./brand-glyph";
+import { BrandIconPicker } from "./brand-icon-picker";
 import { IconPicker } from "./icon-picker";
 
 const LIMITS = { url: 2048, name: 100, description: 280, category: 50 } as const;
@@ -28,7 +31,7 @@ type Lookup =
   | { state: "done"; url: string; metadata: Metadata }
   | { state: "error"; url: string; message: string };
 
-type FieldErrors = Partial<Record<"url" | "name" | "description" | "category", string>>;
+type FieldErrors = Partial<Record<"url" | "name" | "description" | "category" | "icon", string>>;
 
 type AddToolDialogProps = {
   open: boolean;
@@ -36,6 +39,9 @@ type AddToolDialogProps = {
   categories: LibraryCategory[];
   /** Category to preselect, e.g. when opened from an empty card. */
   initialCategoryId?: string;
+  /** Edit mode: prefill from this tool and save with PATCH (existing categories only). */
+  tool?: LibraryTool | null;
+  /** Called after a save, and after a conflict so the library refreshes. */
   onSaved: () => void;
 };
 
@@ -44,6 +50,37 @@ const fieldClass = (invalid: boolean) =>
     "rounded-[10px] border bg-black px-3.5 text-[15px] text-white placeholder:text-[#8e86b5] focus:outline-none focus:ring-2 focus:ring-rein-accent/40",
     invalid ? "border-red-400/70" : "border-rein-border focus:border-rein-accent",
   );
+
+type IconPreview =
+  | { kind: "idle" }
+  | { kind: "brand"; slug: string }
+  | { kind: "letter"; letter: string };
+
+/**
+ * Icon preview inside the URL field: globe (no valid URL yet) → the Simple Icons
+ * brand logo when the domain matches one, otherwise the letter tile the tool card
+ * will use. Purely local: no request to the site. `data-icon-state` aids testing.
+ */
+function UrlIconPreview({ state }: { state: IconPreview }) {
+  return (
+    <span
+      aria-hidden="true"
+      data-icon-state={state.kind}
+      className={cx(
+        "pointer-events-none absolute left-2 top-1/2 flex size-[30px] -translate-y-1/2 items-center justify-center overflow-hidden rounded-[8px] border bg-[#0d0820] transition-colors duration-200",
+        state.kind === "brand" ? "border-rein-accent/60" : "border-rein-border",
+      )}
+    >
+      {state.kind === "brand" ? (
+        <BrandGlyph slug={state.slug} className="size-[18px] text-violet-200" />
+      ) : state.kind === "letter" ? (
+        <span className="font-mono text-[13px] font-bold text-violet-300/80">{state.letter}</span>
+      ) : (
+        <GlobeAltIcon className="size-4 text-rein-label/70" />
+      )}
+    </span>
+  );
+}
 
 const canonical = (value: string) => value.trim().replace(/\s+/g, " ");
 
@@ -69,7 +106,7 @@ const lookupMessage: Record<string, string> = {
   SERVICE_UNAVAILABLE: "Site lookup is unavailable right now. You can still save manually.",
 };
 
-export function AddToolDialog({ open, onOpenChange, categories, initialCategoryId, onSaved }: AddToolDialogProps) {
+export function AddToolDialog({ open, onOpenChange, categories, initialCategoryId, tool = null, onSaved }: AddToolDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const urlRef = useRef<HTMLInputElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -84,6 +121,8 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
   const [categoryId, setCategoryId] = useState<string | undefined>(initialCategoryId ?? categories[0]?.id);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryIcon, setNewCategoryIcon] = useState<CategoryIconKey>(defaultCategoryIconKey);
+  // Chosen Simple Icons slug; null = fallback (hostname match, else letter tile).
+  const [iconSlug, setIconSlug] = useState<string | null>(null);
   const [lookup, setLookup] = useState<Lookup>({ state: "idle" });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -96,7 +135,16 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
     editedRef.current = edited;
   }, [edited]);
 
-  const dirty = Boolean(url.trim() || name.trim() || description.trim() || newCategoryName.trim());
+  // Which tool the form was last prefilled for, so a library refresh mid-edit doesn't clobber typing.
+  const prefilledFor = useRef<string | null>(null);
+
+  const dirty = tool
+    ? withScheme(url) !== tool.url ||
+      canonical(name) !== tool.name ||
+      canonical(description) !== tool.description ||
+      categoryId !== tool.categoryId ||
+      iconSlug !== (tool.iconSlug ?? null)
+    : Boolean(url.trim() || name.trim() || description.trim() || newCategoryName.trim() || iconSlug);
 
   const reset = useCallback(() => {
     lookupAbort.current?.abort();
@@ -106,10 +154,12 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
     setEdited({ name: false, description: false });
     setNewCategoryName("");
     setNewCategoryIcon(defaultCategoryIconKey);
+    setIconSlug(null);
     setLookup({ state: "idle" });
     setErrors({});
     setFormError(null);
     setConfirmDiscard(false);
+    prefilledFor.current = null;
   }, []);
 
   // Open/close the native dialog (focus trap, Esc, backdrop) and apply the preselected category.
@@ -127,16 +177,31 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
+      if (tool) {
+        if (prefilledFor.current === tool.id) return;
+        prefilledFor.current = tool.id;
+        setCategoryMode("existing");
+        setCategoryId(tool.categoryId);
+        setUrl(tool.url);
+        setName(tool.name);
+        setDescription(tool.description);
+        setIconSlug(tool.iconSlug ?? null);
+        // Existing text is the user's: a URL lookup must not overwrite it.
+        setEdited({ name: true, description: true });
+        return;
+      }
       setCategoryMode(categories.length ? "existing" : "new");
       setCategoryId(initialCategoryId ?? categories[0]?.id);
     }, 0);
     return () => window.clearTimeout(id);
-  }, [open, initialCategoryId, categories]);
+  }, [open, initialCategoryId, categories, tool]);
 
   // Debounced metadata lookup, correlated to the exact URL that started it.
   useEffect(() => {
     const target = parseHttpUrl(url);
     if (!open || !target) return;
+    // Editing: only look up when the URL actually changes.
+    if (tool && target === parseHttpUrl(tool.url)) return;
 
     const timer = window.setTimeout(async () => {
       lookupAbort.current?.abort();
@@ -171,7 +236,7 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
     }, LOOKUP_DELAY_MS);
 
     return () => window.clearTimeout(timer);
-  }, [url, open]);
+  }, [url, open, tool]);
 
   const requestClose = () => {
     if (saving) return;
@@ -193,6 +258,67 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
     return next;
   };
 
+  /** PATCH only what changed; conflicts close the form and refresh the library. */
+  const saveEdit = async (original: LibraryTool, target: string, metadataToken: string | undefined) => {
+    const payload = buildToolUpdatePayload(original, {
+      url: target,
+      name: canonical(name),
+      description: canonical(description),
+      categoryId,
+      iconSlug,
+      metadataToken,
+    });
+    if (!payload) {
+      onOpenChange(false);
+      reset();
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/tools/${original.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await response.json().catch(() => null);
+      if (response.ok) {
+        toast.success(`“${canonical(name)}” updated`);
+        onOpenChange(false);
+        reset();
+        onSaved();
+        return;
+      }
+      const code = body?.error?.code as string | undefined;
+      if (code === "STALE_VERSION" || code === "NOT_FOUND") {
+        toast.error(
+          code === "NOT_FOUND"
+            ? `“${original.name}” no longer exists.`
+            : `“${original.name}” changed in another tab or device. Your library was refreshed; open it again to edit.`,
+        );
+        onOpenChange(false);
+        reset();
+        onSaved();
+      } else if (code === "DUPLICATE_TOOL_URL") setErrors({ url: "This URL is already in your library." });
+      else if (code === "VALIDATION_ERROR") {
+        const fields = body?.error?.fields ?? {};
+        setErrors({
+          url: fields.url?.[0],
+          name: fields.name?.[0],
+          description: fields.description?.[0],
+          category: fields.categoryId?.[0],
+          icon: fields.iconSlug?.[0],
+        });
+      } else {
+        setFormError(body?.error?.message ?? "The tool could not be saved. Try again.");
+      }
+    } catch {
+      setFormError("You appear to be offline. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setConfirmDiscard(false);
@@ -206,21 +332,29 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
     const metadataToken =
       lookup.state === "done" && lookup.url === target ? lookup.metadata.metadataToken : undefined;
 
+    if (tool) {
+      await saveEdit(tool, target, metadataToken);
+      return;
+    }
+
     setSaving(true);
     try {
       const response = await fetch("/api/tools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: canonical(name),
-          url: target,
-          description: canonical(description),
-          category:
-            categoryMode === "existing"
-              ? { id: categoryId }
-              : { create: { name: canonical(newCategoryName), iconKey: newCategoryIcon } },
-          ...(metadataToken ? { metadataToken } : {}),
-        }),
+        body: JSON.stringify(
+          buildCreateToolPayload({
+            name: canonical(name),
+            url: target,
+            description: canonical(description),
+            category:
+              categoryMode === "existing"
+                ? { id: categoryId! }
+                : { create: { name: canonical(newCategoryName), iconKey: newCategoryIcon } },
+            metadataToken,
+            iconSlug,
+          }),
+        ),
       });
       const body = await response.json().catch(() => null);
 
@@ -242,6 +376,7 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
           name: fields.name?.[0],
           description: fields.description?.[0],
           category: fields.category?.[0] ?? fields["category.id"]?.[0] ?? fields["category.create.name"]?.[0],
+          icon: fields.iconSlug?.[0],
         });
       } else if (code === "NOT_FOUND") {
         setErrors({ category: "That category no longer exists. Pick another." });
@@ -257,8 +392,15 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
 
   const currentUrl = parseHttpUrl(url);
   const activeLookup = lookup.state !== "idle" && lookup.url === currentUrl ? lookup : null;
-  const host = currentUrl ? new URL(currentUrl).hostname.replace(/^www\./, "") : "";
   const suggested = activeLookup?.state === "done";
+  const currentHost = currentUrl ? new URL(currentUrl).hostname : null;
+  // The URL-field preview shows exactly what the card will: chosen icon → hostname match → letter.
+  const brandSlug = useBrandSlug(currentHost, iconSlug);
+  const iconPreview: IconPreview = !currentUrl
+    ? { kind: "idle" }
+    : brandSlug
+      ? { kind: "brand", slug: brandSlug }
+      : { kind: "letter", letter: (canonical(name) || new URL(currentUrl).hostname.replace(/^www\./, "")).charAt(0).toUpperCase() || "?" };
 
   return (
     <dialog
@@ -277,9 +419,9 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
       <form onSubmit={submit} noValidate className="flex max-h-[calc(100dvh-32px)] flex-col">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-dashed border-rein-border px-7 pb-5 pt-6">
           <div className="flex flex-col gap-1.5">
-            <p className={cx("m-0", eyebrow)}>NEW ENTRY / T.01</p>
+            <p className={cx("m-0", eyebrow)}>{tool ? "EDIT ENTRY / T.02" : "NEW ENTRY / T.01"}</p>
             <h2 id={titleId} className="m-0 text-[26px] font-bold tracking-[-0.02em]">
-              Add a tool
+              {tool ? "Edit tool" : "Add a tool"}
             </h2>
           </div>
           <button
@@ -326,81 +468,62 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
             )}
           </div>
 
-          {/* URL + lookup status */}
+          {/* URL + brand icon preview (the site lookup only pre-fills name/description) */}
           <div className="flex flex-col gap-2">
             <label htmlFor="tool-url" className="text-sm font-semibold">
               Website URL
             </label>
-            <input
-              ref={urlRef}
-              id="tool-url"
-              type="url"
-              inputMode="url"
-              value={url}
-              maxLength={LIMITS.url}
-              onChange={(event) => {
-                setUrl(event.target.value);
-                if (errors.url) setErrors((e) => ({ ...e, url: undefined }));
-              }}
-              onBlur={() => setUrl((value) => withScheme(value))}
-              placeholder="https://example.com"
-              autoComplete="url"
-              spellCheck={false}
-              aria-invalid={Boolean(errors.url) || undefined}
-              aria-describedby="tool-url-status"
-              className={cx(fieldClass(Boolean(errors.url)), "h-[46px] font-mono text-sm")}
-            />
+            <div className="relative">
+              <input
+                ref={urlRef}
+                id="tool-url"
+                type="url"
+                inputMode="url"
+                value={url}
+                maxLength={LIMITS.url}
+                onChange={(event) => {
+                  setUrl(event.target.value);
+                  if (errors.url) setErrors((e) => ({ ...e, url: undefined }));
+                }}
+                onBlur={() => setUrl((value) => withScheme(value))}
+                placeholder="https://example.com"
+                autoComplete="url"
+                spellCheck={false}
+                aria-invalid={Boolean(errors.url) || undefined}
+                aria-describedby="tool-url-status"
+                className={cx(fieldClass(Boolean(errors.url)), "h-[46px] w-full pl-12 font-mono text-sm")}
+              />
+              <UrlIconPreview state={iconPreview} />
+            </div>
             <div id="tool-url-status" aria-live="polite">
+              <span className="sr-only">{iconPreview.kind === "brand" ? "Brand logo matched." : ""}</span>
               {errors.url ? (
                 <span className="text-[13px] text-red-300">{errors.url}</span>
-              ) : activeLookup ? (
-                <div className="flex items-center gap-3 rounded-xl border border-rein-border bg-violet-600/10 p-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-rein-accent/40 bg-black font-bold">
-                    {activeLookup.state === "done" && activeLookup.metadata.iconStatus === "ready" && activeLookup.metadata.iconUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- remote favicon, loaded without referrer.
-                      <img src={activeLookup.metadata.iconUrl} alt="" width={22} height={22} referrerPolicy="no-referrer" className="size-[22px] object-contain" />
-                    ) : (
-                      <span aria-hidden="true">{(canonical(name) || host).charAt(0).toUpperCase() || "?"}</span>
-                    )}
-                  </span>
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-sm font-semibold">
-                      {activeLookup.state === "loading"
-                        ? "Looking up the site…"
-                        : activeLookup.state === "error"
-                          ? "Site details unavailable"
-                          : activeLookup.metadata.iconStatus === "ready"
-                            ? "Site icon found"
-                            : activeLookup.metadata.iconStatus === "fallback"
-                              ? "No icon found — a letter tile will be used"
-                              : "Site didn't respond — a letter tile will be used"}
-                    </span>
-                    <span className="truncate font-mono text-xs text-rein-label">
-                      {activeLookup.state === "error"
-                        ? activeLookup.message
-                        : activeLookup.state === "done" && (activeLookup.metadata.title || activeLookup.metadata.description)
-                          ? `${host} · name and description suggested below`
-                          : host}
-                    </span>
-                  </span>
-                  {activeLookup.state === "loading" ? (
-                    <span aria-hidden="true" className="size-5 animate-spin rounded-full border-2 border-rein-accent/30 border-t-rein-accent motion-reduce:animate-none" />
-                  ) : activeLookup.state === "error" ? (
-                    <ExclamationTriangleIcon aria-hidden="true" className="size-5 text-amber-300" />
-                  ) : (
-                    <CheckCircleIcon aria-hidden="true" className="size-5 text-rein-accent" />
-                  )}
-                </div>
               ) : (
-                <span className="text-[13px] text-rein-soft">Paste a link and Rein will look up its icon and details.</span>
+                <span className="text-[13px] text-rein-soft">Paste a link and Rein will match its logo and fill in the details.</span>
               )}
             </div>
           </div>
+
+          {/* Icon (optional Simple Icons choice; only the slug is ever sent) */}
+          <BrandIconPicker
+            // Remount per open (and per edited tool) so the brand search box starts empty.
+            key={open ? `open-${tool?.id ?? "new"}` : "closed"}
+            name={canonical(name)}
+            hostname={currentHost}
+            value={iconSlug}
+            onChange={(slug) => {
+              setIconSlug(slug);
+              if (errors.icon) setErrors((e) => ({ ...e, icon: undefined }));
+            }}
+            error={errors.icon}
+          />
 
           {/* Category */}
           <fieldset className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <legend className="text-sm font-semibold">Category</legend>
+              {!tool && (
               <div role="group" aria-label="Category mode" className="flex rounded-[10px] border border-rein-border p-[3px]">
                 {(["existing", "new"] as const).map((mode) => (
                   <button
@@ -421,6 +544,7 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
                   </button>
                 ))}
               </div>
+              )}
             </div>
 
             {categoryMode === "existing" ? (
@@ -512,15 +636,15 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
           )}
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-rein-line bg-black/60 px-7 py-[18px]">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-rein-line bg-black/60 px-7 py-[18px]">
           {confirmDiscard ? (
-            <span role="alert" className="text-sm text-amber-200">
-              Discard this tool? Your changes will be lost.
+            <span role="alert" className="min-w-0 flex-1 text-sm text-amber-200">
+              {tool ? "Discard your changes to this tool?" : "Discard this tool? Your changes will be lost."}
             </span>
           ) : (
             <span className="font-mono text-[11px] tracking-[0.08em] text-rein-label">ESC TO CANCEL</span>
           )}
-          <div className="flex gap-2.5">
+          <div className="ml-auto flex shrink-0 gap-2.5">
             {confirmDiscard ? (
               <>
                 <button type="button" onClick={() => setConfirmDiscard(false)} className={buttonStyles.outline}>
@@ -540,7 +664,7 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
                   disabled={saving}
                   className={cx(buttonStyles.primary, "disabled:cursor-wait disabled:opacity-70")}
                 >
-                  {saving ? "Saving…" : "Save tool"}
+                  {saving ? "Saving…" : tool ? "Save changes" : "Save tool"}
                 </button>
               </>
             )}

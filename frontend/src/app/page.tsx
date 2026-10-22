@@ -10,7 +10,7 @@ import { Navbar } from "@/components/navigation/navbar";
 export default function Home() {
   return (
     <AppShell nav={<Navbar links={navLinks} />}>
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-24 px-6 pb-12 pt-14">
+      <div className="mx-auto flex max-w-[1200px] flex-col gap-24 px-3 pb-12 pt-14 sm:px-5 min-[1200px]:px-6">
         <main className="flex flex-col gap-24">
           <Hero />
           <About />

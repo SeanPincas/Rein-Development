@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { MobileAuthActions } from "@/components/auth/auth-controls";
-import { ReinMark } from "@/components/brand/rein-mark";
+import { ReinWordmark } from "@/components/brand/rein-wordmark";
 import { eyebrow } from "@/components/ui/styles";
 import type { NavLink } from "./navbar";
 
@@ -62,10 +62,7 @@ export function MobileMenu({ links }: { links: readonly NavLink[] }) {
       >
         <div className="flex flex-col gap-6 px-6 pb-7 pt-4">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2.5">
-              <ReinMark size={32} />
-              <span className="text-xl font-semibold tracking-[-0.03em]">Rein</span>
-            </span>
+            <ReinWordmark className="text-[22px]" />
             <button
               type="button"
               onClick={() => setOpen(false)}

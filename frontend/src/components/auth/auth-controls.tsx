@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, UserButton, useAuth } from "@clerk/nextjs";
 import { buttonStyles } from "@/components/ui/styles";
+import { userButtonAppearance, userProfileAppearance } from "./clerk-appearance";
 
 /** Navbar account area: links to the auth pages when signed out, library + account menu when signed in. */
 export function HeaderAuthControls() {
@@ -18,7 +19,11 @@ export function HeaderAuthControls() {
             Open library
           </Link>
         )}
-        <UserButton />
+        <UserButton
+          appearance={userButtonAppearance}
+          // Account settings modal opened from the menu gets Rein's responsive styling.
+          userProfileProps={{ appearance: userProfileAppearance }}
+        />
       </div>
     );
   }

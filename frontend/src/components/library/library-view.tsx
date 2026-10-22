@@ -4,16 +4,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowPathIcon, ArrowsUpDownIcon, CheckIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { SiteFooter } from "@/components/landing/site-footer";
 import { AppShell } from "@/components/layout/app-shell";
 import { Navbar } from "@/components/navigation/navbar";
 import { buttonStyles, eyebrow, panel } from "@/components/ui/styles";
 import { cx } from "@/lib/design";
 import { ReorderQueue, applyOrder, keyboardTargetIndex, moveById, moveItem, sendCategoryOrder } from "@/lib/shared/category-order";
 import type { LibraryCategory, LibrarySnapshot, LibraryTool } from "@/lib/shared/library-types";
+import { sortTools } from "@/lib/shared/tool-order";
 import { AddToolDialog } from "./add-tool-dialog";
 import { CreateCategoryDialog } from "./create-category-dialog";
-import { CategoryCard, CategoryCardSkeleton } from "./library-cards";
-import { ReorderableCard, type DragState } from "./reorderable-card";
+import { DeleteCategoryDialog } from "./delete-category-dialog";
+import { DeleteToolDialog } from "./delete-tool-dialog";
+import { CategoryCard } from "./library-cards";
+import { RearrangeCategoriesDialog } from "./rearrange-categories-dialog";
+import { ReorderableCard } from "./reorderable-card";
 import { LibrarySearch } from "./library-search";
 import { StaggeredGrid } from "./staggered-grid";
 
@@ -59,19 +64,19 @@ async function toggleFavorite(tool: LibraryTool): Promise<{ ok: true } | { ok: f
 
 const normalize = (value: string) => value.toLocaleLowerCase().replace(/\s+/g, " ").trim();
 
+/** Search looks at the tool's name and its URL (full address and hostname) only. */
 function matches(tool: LibraryTool, query: string) {
-  return [tool.name, tool.description, tool.hostname].some((field) => normalize(field).includes(query));
+  return [tool.name, tool.url, tool.hostname].some((field) => normalize(field).includes(query));
 }
 
-/** Categories and tools visible for the current search. */
+/** Categories and tools visible for the current search; tools in display order (favorites, then A→Z). */
 function visibleCategories(categories: LibraryCategory[], query: string) {
   const q = normalize(query);
   return categories
     .map((category) => {
-      if (!q) return { category, tools: category.tools };
-      // A category-name match keeps all of its tools.
-      if (normalize(category.name).includes(q)) return { category, tools: category.tools };
-      return { category, tools: category.tools.filter((tool) => matches(tool, q)) };
+      const tools = sortTools(category.tools);
+      if (!q) return { category, tools };
+      return { category, tools: tools.filter((tool) => matches(tool, q)) };
     })
     .filter(({ tools }) => !q || tools.length > 0);
 }
@@ -91,16 +96,32 @@ const withCategories = (snapshot: LibrarySnapshot, categories: LibraryCategory[]
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
-function AddToolButton({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+/**
+ * Toolbar buttons scale with the screen: 40px on phones and tablets (on phones the
+ * three share one row), 44px (the shared button size) from the 3-column desktop up.
+ */
+const toolbarSize =
+  "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[13px] transition-colors sm:px-4 sm:text-sm min-[1200px]:h-11 min-[1200px]:gap-2 min-[1200px]:text-[15px]";
+const toolbarButton = {
+  outline: cx(toolbarSize, "border border-white/30 font-medium text-white hover:border-white"),
+  primary: cx(toolbarSize, "bg-rein-accent font-semibold text-black hover:bg-violet-300"),
+  /** Phones: the two labelled buttons share the row's remaining width. */
+  grow: "flex-1 sm:flex-none",
+};
+
+function AddToolButton({ onClick, disabled, toolbar = false }: { onClick: () => void; disabled?: boolean; toolbar?: boolean }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={cx(buttonStyles.navPrimary, "gap-1.5 disabled:cursor-not-allowed disabled:opacity-60")}
+      className={cx(
+        toolbar ? cx(toolbarButton.primary, toolbarButton.grow) : cx(buttonStyles.primary, "gap-1.5 px-4"),
+        "disabled:cursor-not-allowed disabled:opacity-60",
+      )}
     >
-      <PlusIcon aria-hidden="true" className="size-4 stroke-2" />
-      <span>Add Tool</span>
+      <PlusIcon aria-hidden="true" className="size-4 shrink-0 stroke-2" />
+      <span className="truncate">Add Tool</span>
     </button>
   );
 }
@@ -111,14 +132,24 @@ export function LibraryView() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<LibraryCategory | null>(null);
+  const [deletingCategory, setDeletingCategory] = useState<LibraryCategory | null>(null);
+  const [editingTool, setEditingTool] = useState<LibraryTool | null>(null);
+  const [deletingTool, setDeletingTool] = useState<LibraryTool | null>(null);
   const [entranceKey, setEntranceKey] = useState(0);
   const [addTool, setAddTool] = useState<{ open: boolean; categoryId?: string }>({ open: false });
   const openAddTool = (categoryId?: string) => setAddTool({ open: true, categoryId });
   const lastSignature = useRef<string | null>(null);
   const lastLoad = useRef(0);
-  const [drag, setDrag] = useState<DragState>({ draggingId: null, overId: null });
+  // Drag state: nothing moves while dragging; the held card fades and the card under the
+  // pointer is highlighted. On drop the order changes once and every card slides into place.
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   // Rearranging is an explicit mode: handles and dragging only appear while it is on.
   const [rearranging, setRearranging] = useState(false);
+  // Phones rearrange in a dialog of compact rows instead of dragging long cards.
+  const [rearrangeDialogOpen, setRearrangeDialogOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const focusAfterMove = useRef<string | null>(null);
   const orderRef = useRef<string[]>([]);
@@ -197,17 +228,43 @@ export function LibraryView() {
     [getQueue, reload],
   );
 
-  const handleDrop = useCallback(
-    (draggedId: string, targetId: string) => {
-      if (state.status !== "ready") return;
-      const next = moveById(state.snapshot.categories, draggedId, targetId);
-      if (!next) return;
-      const moved = next.find((category) => category.id === draggedId);
-      commitOrder(next);
-      if (moved) setAnnouncement(`${moved.name} moved to position ${next.indexOf(moved) + 1} of ${next.length}.`);
+  const handleDragStart = useCallback((id: string) => {
+    setDraggingId(id);
+    setOverId(null);
+  }, []);
+
+  const handleDragEnterCard = useCallback(
+    (targetId: string) => {
+      if (!draggingId) return;
+      // Back over its own card: no target, so a drop here changes nothing.
+      setOverId(targetId === draggingId ? null : targetId);
     },
-    [state, commitOrder],
+    [draggingId],
   );
+
+  /** Drop: move the held card into the target's position; useFlip slides every card. */
+  const handleDropCommit = useCallback(
+    (targetId?: string) => {
+      const target = targetId ?? overId;
+      if (state.status === "ready" && draggingId && target && target !== draggingId) {
+        const next = moveById(state.snapshot.categories, draggingId, target);
+        if (next) {
+          const moved = next.find((category) => category.id === draggingId);
+          commitOrder(next);
+          if (moved) setAnnouncement(`${moved.name} moved to position ${next.indexOf(moved) + 1} of ${next.length}.`);
+        }
+      }
+      setDraggingId(null);
+      setOverId(null);
+    },
+    [state, draggingId, overId, commitOrder],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    // Dropped outside the grid or cancelled (Esc): nothing changes.
+    setDraggingId(null);
+    setOverId(null);
+  }, []);
 
   const handleKeyboardMove = useCallback(
     (id: string, key: string) => {
@@ -296,12 +353,12 @@ export function LibraryView() {
     <AppShell
       backdrop="subtle"
       nav={
-        <Navbar actions={<AddToolButton onClick={() => openAddTool()} disabled={state.status !== "ready"} />}>
-          <LibrarySearch value={query} onChange={setQuery} />
-        </Navbar>
+        <Navbar />
       }
     >
-      <main className="mx-auto flex max-w-[1200px] flex-col gap-5 px-6 pb-16 pt-12">
+      {/* Padding scales with the screen (phone / tablet / desktop); the navbar uses the same steps. */}
+      {/* min-h-full + the footer's mt-auto keep the footer at the bottom even before cards load. */}
+      <main className="mx-auto flex min-h-full max-w-[1200px] flex-col gap-4 px-3 pb-5 pt-6 sm:gap-5 sm:px-5 sm:pt-8 min-[1200px]:px-6 min-[1200px]:pb-6 min-[1200px]:pt-12">
         <section aria-labelledby="library-title" className="flex flex-col gap-[18px]">
           <div className="flex flex-col gap-1.5">
             <p className={cx("m-0", eyebrow)}>LIBRARY / SHEET 01</p>
@@ -319,11 +376,18 @@ export function LibraryView() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                {rearranging && (
+              {/* Phones: one full-width row; tablets/desktop: right-aligned, may wrap. */}
+              <div className="flex w-full items-center gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
+                {/* Rearranging swaps the search for the drag instructions. */}
+                {rearranging ? (
                   <span className="hidden font-mono text-[11px] tracking-[0.08em] text-rein-label sm:inline">
                     DRAG CARDS OR USE ARROW KEYS ON A HANDLE
                   </span>
+                ) : (
+                  // Desktop (3 columns) only; narrower screens get the full-width field below.
+                  <div className="hidden min-[1200px]:block">
+                    <LibrarySearch value={query} onChange={setQuery} />
+                  </div>
                 )}
                 <button
                   type="button"
@@ -332,39 +396,52 @@ export function LibraryView() {
                   title={rearranging ? "Done rearranging (Esc)" : "Rearrange categories"}
                   disabled={!rearrangeAvailable}
                   onClick={() => {
+                    // Phones: open the compact rearrange dialog instead of the on-page mode.
+                    if (!rearranging && window.matchMedia("(max-width: 639px)").matches) {
+                      setRearrangeDialogOpen(true);
+                      return;
+                    }
                     setRearranging((on) => !on);
                     setAnnouncement(rearranging ? "Rearranging off." : "Rearranging on. Drag cards, or focus a handle and use the arrow keys.");
                   }}
                   className={cx(
-                    "flex size-11 shrink-0 items-center justify-center rounded-[10px] border transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                    "flex size-10 shrink-0 items-center justify-center rounded-[10px] border transition-colors disabled:cursor-not-allowed disabled:opacity-40 min-[1200px]:size-11",
                     rearranging
                       ? "border-rein-accent bg-rein-accent text-black hover:bg-violet-300"
                       : "border-white/30 text-white hover:border-white",
                   )}
                 >
                   {rearranging ? (
-                    <CheckIcon aria-hidden="true" className="size-5 stroke-2" />
+                    <CheckIcon aria-hidden="true" className="size-[18px] stroke-2 sm:size-5" />
                   ) : (
-                    <ArrowsUpDownIcon aria-hidden="true" className="size-5" />
+                    <ArrowsUpDownIcon aria-hidden="true" className="size-[18px] sm:size-5" />
                   )}
                 </button>
                 <button
                   type="button"
                   onClick={() => setCreatingCategory(true)}
-                  className={cx(buttonStyles.outline, "px-4")}
+                  className={cx(toolbarButton.outline, toolbarButton.grow)}
                 >
-                  <FolderPlusIcon aria-hidden="true" className="size-[18px]" />
-                  Create Category
+                  <FolderPlusIcon aria-hidden="true" className="size-4 shrink-0 min-[1200px]:size-[18px]" />
+                  <span className="truncate">Create Category</span>
                 </button>
+                <AddToolButton toolbar onClick={() => openAddTool()} disabled={state.status !== "ready"} />
               </div>
             </div>
           </div>
+          {/* Tablet/phone: full-width search under the action row (hidden while rearranging). */}
+          {!rearranging && (
+            <div className="min-[1200px]:hidden">
+              <LibrarySearch variant="full" value={query} onChange={setQuery} />
+            </div>
+          )}
         </section>
 
         {state.status === "loading" && (
-          <div aria-busy="true" aria-label="Loading your library">
-            <StaggeredGrid items={[3, 2, 4, 2, 3, 1].map((rows, i) => <CategoryCardSkeleton key={i} rows={rows} />)} />
-          </div>
+          // No skeleton cards: the real cards play their entrance once the library arrives.
+          <p role="status" className="sr-only">
+            Loading your library…
+          </p>
         )}
 
         {state.status === "error" && (
@@ -408,8 +485,24 @@ export function LibraryView() {
         )}
 
         {state.status === "ready" && visible.length > 0 && (
+          <div
+            ref={gridRef}
+            // Dropping in a gap between cards uses the last highlighted target.
+            onDragOver={(event) => {
+              if (draggingId) event.preventDefault();
+            }}
+            onDrop={(event) => {
+              if (!draggingId) return;
+              event.preventDefault();
+              handleDropCommit();
+            }}
+          >
           <StaggeredGrid
             animationKey={entranceKey}
+            // Slides on reorders and balancing; balancing pauses while rearranging so the
+            // layout is exactly the saved order, then the last row settles on Done.
+            flip
+            balanceTail={!reorderEnabled}
             items={visible.map(({ category, tools }, index) => (
               <ReorderableCard
                 key={category.id}
@@ -418,9 +511,13 @@ export function LibraryView() {
                 index={index}
                 count={categories.length}
                 enabled={reorderEnabled}
-                drag={drag}
-                onDragStateChange={setDrag}
-                onDropOn={handleDrop}
+                dragging={draggingId === category.id}
+                dropTarget={overId === category.id}
+                dragActive={draggingId !== null}
+                onDragStart={handleDragStart}
+                onDragEnterCard={handleDragEnterCard}
+                onDropCommit={handleDropCommit}
+                onDragEnd={handleDragEnd}
                 onKeyboardMove={handleKeyboardMove}
               >
                 {(handle) => (
@@ -429,12 +526,18 @@ export function LibraryView() {
                     tools={tools}
                     onAddTool={() => openAddTool(category.id)}
                     onToggleFavorite={handleToggleFavorite}
+                    onEditTool={setEditingTool}
+                    onDeleteTool={setDeletingTool}
+                    onEdit={() => setEditingCategory(category)}
+                    onDelete={() => setDeletingCategory(category)}
                     headerAccessory={handle}
+                    rearranging={reorderEnabled}
                   />
                 )}
               </ReorderableCard>
             ))}
           />
+          </div>
         )}
         <p id="category-reorder-help" className="sr-only">
           Drag a card to reorder it, or focus its handle and use the arrow keys. Home and End move it to the first or last position.
@@ -442,6 +545,9 @@ export function LibraryView() {
         <p className="sr-only" role="status" aria-live="polite">
           {announcement}
         </p>
+        <div className="mt-auto pt-24 sm:pt-32">
+          <SiteFooter />
+        </div>
       </main>
       <AddToolDialog
         open={addTool.open}
@@ -450,10 +556,46 @@ export function LibraryView() {
         initialCategoryId={addTool.categoryId}
         onSaved={() => reload("refresh")}
       />
+      <AddToolDialog
+        open={editingTool !== null}
+        tool={editingTool}
+        onOpenChange={(open) => {
+          if (!open) setEditingTool(null);
+        }}
+        categories={categories}
+        onSaved={() => reload("refresh")}
+      />
+      {rearrangeDialogOpen && state.status === "ready" && (
+        <RearrangeCategoriesDialog
+          categories={state.snapshot.categories}
+          onClose={() => setRearrangeDialogOpen(false)}
+          onSave={(next) => {
+            setRearrangeDialogOpen(false);
+            commitOrder(next);
+            setAnnouncement("Category order updated.");
+            toast.success("Category order updated");
+          }}
+        />
+      )}
+      <DeleteToolDialog tool={deletingTool} onClose={() => setDeletingTool(null)} onDeleted={() => reload("refresh")} />
       <CreateCategoryDialog
         open={creatingCategory}
         onOpenChange={setCreatingCategory}
         onCreated={() => reload("refresh")}
+      />
+      <CreateCategoryDialog
+        open={editingCategory !== null}
+        category={editingCategory}
+        onOpenChange={(open) => {
+          if (!open) setEditingCategory(null);
+        }}
+        onCreated={() => reload("refresh")}
+      />
+      <DeleteCategoryDialog
+        category={deletingCategory}
+        categories={categories}
+        onClose={() => setDeletingCategory(null)}
+        onDeleted={() => reload("refresh")}
       />
     </AppShell>
   );

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BlueprintBackdrop } from "@/components/landing/blueprint-backdrop";
+import { AutoHideScrollbar } from "@/components/layout/auto-hide-scrollbar";
 import { blueprint, cx, type LiquidPresetName } from "@/lib/design";
 
 type AppShellProps = {
@@ -23,6 +24,7 @@ export function AppShell({ nav, children, backdrop = "hero", className }: AppShe
       <div id="content" className={cx(blueprint.scrollArea, className)}>
         {children}
       </div>
+      <AutoHideScrollbar targetId="content" />
     </div>
   );
 }
