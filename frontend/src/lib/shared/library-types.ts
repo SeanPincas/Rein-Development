@@ -10,6 +10,7 @@ export type LibraryTool = {
   description: string;
   iconUrl: string | null;
   iconStatus: "ready" | "fallback" | "unavailable";
+  iconSlug: string | null;
   isFavorite: boolean;
   version: number;
   createdAt: string;

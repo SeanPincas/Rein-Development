@@ -6,17 +6,23 @@ import { cx } from "@/lib/design";
 /** Elements that keep their own pointer behaviour; a drag must not start from them. */
 const NON_DRAG_TARGETS = "a, button:not([data-reorder-handle]), input, textarea, select, label, [contenteditable='true']";
 
-export type DragState = { draggingId: string | null; overId: string | null };
-
 type ReorderableCardProps = {
   id: string;
   name: string;
   index: number;
   count: number;
   enabled: boolean;
-  drag: DragState;
-  onDragStateChange: (next: DragState) => void;
-  onDropOn: (draggedId: string, targetId: string) => void;
+  /** This card is the one being dragged (faded in place). */
+  dragging: boolean;
+  /** The held card is over this card: it will take this position on drop. */
+  dropTarget: boolean;
+  /** Some card is being dragged. */
+  dragActive: boolean;
+  onDragStart: (id: string) => void;
+  /** The dragged card entered this card: highlight it as the drop target. */
+  onDragEnterCard: (id: string) => void;
+  onDropCommit: (targetId?: string) => void;
+  onDragEnd: () => void;
   onKeyboardMove: (id: string, key: string) => boolean;
   children: (handle: ReactNode) => ReactNode;
 };
@@ -24,9 +30,7 @@ type ReorderableCardProps = {
 /** Should this pointer drag be allowed to start? */
 function canStartDrag(event: DragEvent<HTMLElement>): boolean {
   const target = event.target as HTMLElement | null;
-  if (!target || target !== event.currentTarget) {
-    if (target?.closest(NON_DRAG_TARGETS)) return false;
-  }
+  if (target && target !== event.currentTarget && target.closest(NON_DRAG_TARGETS)) return false;
   if (document.querySelector("dialog[open]")) return false;
   const active = document.activeElement as HTMLElement | null;
   if (active?.matches("input, textarea, select, [contenteditable='true']")) return false;
@@ -34,8 +38,9 @@ function canStartDrag(event: DragEvent<HTMLElement>): boolean {
 }
 
 /**
- * Wraps a category card with native drag-and-drop and a keyboard reorder handle.
- * The card renders the handle via the `children` render prop (in its header).
+ * Category card wrapper for rearrange mode: native drag-and-drop with live
+ * preview, a keyboard handle, and a gentle jiggle like phone home-screen edit mode.
+ * `data-flip-id` lets useFlip slide the card when the order changes.
  */
 export function ReorderableCard({
   id,
@@ -43,15 +48,16 @@ export function ReorderableCard({
   index,
   count,
   enabled,
-  drag,
-  onDragStateChange,
-  onDropOn,
+  dragging,
+  dropTarget,
+  dragActive,
+  onDragStart,
+  onDragEnterCard,
+  onDropCommit,
+  onDragEnd,
   onKeyboardMove,
   children,
 }: ReorderableCardProps) {
-  const dragging = drag.draggingId === id;
-  const isTarget = drag.draggingId !== null && drag.overId === id && !dragging;
-
   const handle = enabled ? (
     <button
       type="button"
@@ -72,6 +78,7 @@ export function ReorderableCard({
 
   return (
     <div
+      data-flip-id={id}
       data-category-id={id}
       draggable={enabled}
       aria-roledescription={enabled ? "reorderable category" : undefined}
@@ -82,39 +89,44 @@ export function ReorderableCard({
         }
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", id);
-        onDragStateChange({ draggingId: id, overId: null });
+        onDragStart(id);
       }}
       onDragEnter={(event) => {
-        if (!drag.draggingId || drag.draggingId === id) return;
+        if (!dragActive) return;
         event.preventDefault();
-        if (drag.overId !== id) onDragStateChange({ ...drag, overId: id });
+        onDragEnterCard(id);
       }}
       onDragOver={(event) => {
-        if (!drag.draggingId) return;
+        if (!dragActive) return;
         event.preventDefault();
-        event.dataTransfer.dropEffect = drag.draggingId === id ? "none" : "move";
-      }}
-      onDragLeave={(event) => {
-        if (drag.overId === id && !event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          onDragStateChange({ ...drag, overId: null });
-        }
+        event.dataTransfer.dropEffect = "move";
       }}
       onDrop={(event) => {
+        if (!dragActive) return;
         event.preventDefault();
-        const draggedId = drag.draggingId ?? event.dataTransfer.getData("text/plain");
-        onDragStateChange({ draggingId: null, overId: null });
-        if (draggedId && draggedId !== id) onDropOn(draggedId, id);
+        event.stopPropagation();
+        onDropCommit(dragging ? undefined : id);
       }}
-      onDragEnd={() => onDragStateChange({ draggingId: null, overId: null })}
+      onDragEnd={onDragEnd}
       className={cx(
-        "rounded-[20px] transition-[opacity,box-shadow] duration-200",
-        // Rearrange mode: a faint dashed outline marks every movable card.
-        enabled && "cursor-grab outline-1 outline-offset-4 outline-rein-accent/45 outline-dashed active:cursor-grabbing",
-        dragging && "opacity-40",
-        isTarget && "ring-2 ring-rein-accent ring-offset-2 ring-offset-black shadow-[0_0_40px_rgb(124_58_237/0.35)]",
+        "relative rounded-[20px]",
+        enabled && "cursor-grab active:cursor-grabbing",
       )}
     >
-      {children(handle)}
+      <div
+        className={cx(
+          "rounded-[20px] transition-[opacity,outline-color] duration-200",
+          // Rearrange mode: a faint dashed outline marks every movable card, and it jiggles.
+          enabled && !dropTarget && "outline-1 outline-offset-4 outline-dashed outline-rein-accent/45",
+          enabled && !dragActive && "rein-jiggle",
+          // The held card fades in place; the card under the pointer is the highlighted drop target.
+          dragging && "opacity-40",
+          dropTarget && "outline-2 outline-offset-4 outline-solid outline-rein-accent shadow-[0_0_40px_rgb(124_58_237/0.35)]",
+        )}
+        style={enabled ? { animationDelay: `${(index % 5) * -0.17}s` } : undefined}
+      >
+        {children(handle)}
+      </div>
     </div>
   );
 }

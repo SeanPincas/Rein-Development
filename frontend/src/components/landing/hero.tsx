@@ -1,6 +1,7 @@
 import { StartLibraryButton } from "@/components/auth/auth-controls";
 import { buttonStyles } from "@/components/ui/styles";
-import { LibrarySketch } from "./library-sketch";
+import Image from "next/image";
+import libraryPreview from "./library-preview.webp";
 
 export function Hero() {
   return (
@@ -39,7 +40,17 @@ export function Hero() {
         </div>
       </div>
       <div className="min-w-0 flex-[1_1_520px]">
-        <LibrarySketch />
+        {/* Real library screenshot; the bottom fades out because the cards continue below the crop. */}
+        <div className="overflow-hidden rounded-[20px] border border-rein-border-strong bg-black shadow-[0_30px_90px_rgb(0_0_0/0.6),0_0_80px_rgb(124_58_237/0.25)] [mask-image:linear-gradient(to_bottom,#000_72%,transparent)]">
+          <Image
+            src={libraryPreview}
+            alt="The Rein library: categories such as UI & Design, AI Agents and Databases, each listing saved tools with their logos and descriptions."
+            sizes="(min-width: 1200px) 600px, (min-width: 768px) 90vw, 100vw"
+            placeholder="blur"
+            preload
+            className="block h-auto w-full"
+          />
+        </div>
       </div>
     </section>
   );

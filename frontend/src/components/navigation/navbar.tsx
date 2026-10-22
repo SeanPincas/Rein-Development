@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { HeaderAuthControls } from "@/components/auth/auth-controls";
-import { ReinMark } from "@/components/brand/rein-mark";
+import { ReinWordmark } from "@/components/brand/rein-wordmark";
 import { MobileMenu } from "./mobile-menu";
 
 export type NavLink = {
@@ -25,10 +25,9 @@ type NavbarProps = {
 export function Navbar({ links = [], children, actions }: NavbarProps) {
   return (
     <header className="relative z-10 shrink-0">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-4 gap-y-3 px-6 py-4 md:py-5">
-        <Link href="/" className="flex items-center gap-2.5 text-white">
-          <ReinMark size={36} />
-          <span className="text-[22px] font-semibold tracking-[-0.03em]">Rein</span>
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-x-4 gap-y-3 px-3 py-3 sm:px-5 sm:py-4 md:py-5 min-[1200px]:px-6">
+        <Link href="/" className="flex items-center rounded-md text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rein-accent">
+          <ReinWordmark className="text-[24px] sm:text-[27px]" />
         </Link>
 
         {children ? (

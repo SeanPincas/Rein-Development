@@ -30,6 +30,7 @@ type ToolRow = {
   description: string;
   icon_url: string | null;
   icon_status: "ready" | "fallback" | "unavailable";
+  icon_slug: string | null;
   is_favorite: boolean;
   version: number;
   created_at: string;
@@ -47,7 +48,7 @@ export type LibraryResponse = {
 const categoryColumns =
   "id,name,icon_key,sort_order,version,created_at,updated_at";
 const toolColumns =
-  "id,category_id,name,url,hostname,description,icon_url,icon_status,is_favorite,version,created_at,updated_at";
+  "id,category_id,name,url,hostname,description,icon_url,icon_status,icon_slug,is_favorite,version,created_at,updated_at";
 
 export function toCategory(row: CategoryRow) {
   return {
@@ -71,6 +72,7 @@ export function toTool(row: ToolRow) {
     description: row.description,
     iconUrl: row.icon_url,
     iconStatus: row.icon_status,
+    iconSlug: row.icon_slug,
     isFavorite: row.is_favorite,
     version: row.version,
     createdAt: row.created_at,
@@ -89,6 +91,9 @@ function mapDatabaseError(error: DatabaseError): ApiError {
   if (["23503", "23514", "22023"].includes(error.code ?? "")) {
     return ApiError.validation({ _root: ["The submitted values are invalid."] });
   }
+  // Log only the code (never the message or payload) so unmapped failures are diagnosable,
+  // e.g. PGRST202 = database function missing (migration not applied), 42501 = permission denied.
+  console.warn(JSON.stringify({ event: "database.unmapped_error", code: error.code ?? "unknown" }));
   return ApiError.serviceUnavailable();
 }
 
@@ -195,8 +200,9 @@ export async function createTool(
     normalized_url: input.url.normalizedUrl,
     hostname: input.url.hostname,
     description: input.description,
-    icon_url: metadata?.iconStatus === "ready" ? metadata.iconUrl : null,
-    icon_status: metadata?.iconStatus ?? "fallback",
+    icon_url: input.iconSlug ? null : (metadata?.iconStatus === "ready" ? metadata.iconUrl : null),
+    icon_status: input.iconSlug ? "ready" : (metadata?.iconStatus ?? "fallback"),
+    icon_slug: input.iconSlug ?? null,
   };
 
   if ("create" in input.category) {
@@ -210,6 +216,7 @@ export async function createTool(
       p_description: toolValues.description,
       p_icon_url: toolValues.icon_url,
       p_icon_status: toolValues.icon_status,
+      p_icon_slug: toolValues.icon_slug,
     });
     if (error) throw mapDatabaseError(error);
     const result = data as { category: CategoryRow; tool: ToolRow };
@@ -242,6 +249,11 @@ export async function updateTool(
     ...(input.name === undefined ? {} : { name: input.name }),
     ...(input.description === undefined ? {} : { description: input.description }),
     ...(input.isFavorite === undefined ? {} : { is_favorite: input.isFavorite }),
+    ...(input.iconSlug === undefined ? {} : {
+      icon_slug: input.iconSlug,
+      icon_url: null,
+      icon_status: input.iconSlug ? "ready" : "fallback",
+    }),
     ...(input.categoryId === undefined ? {} : { category_id: input.categoryId }),
     ...(input.url === undefined
       ? {}
@@ -249,8 +261,9 @@ export async function updateTool(
           url: input.url.url,
           normalized_url: input.url.normalizedUrl,
           hostname: input.url.hostname,
-          icon_url: metadata?.iconStatus === "ready" ? metadata.iconUrl : null,
-          icon_status: metadata?.iconStatus ?? "fallback",
+          icon_url: input.iconSlug ? null : (metadata?.iconStatus === "ready" ? metadata.iconUrl : null),
+          icon_status: input.iconSlug ? "ready" : (metadata?.iconStatus ?? "fallback"),
+          ...(input.iconSlug === undefined ? { icon_slug: null } : {}),
         }),
   };
   const { data, error } = await database

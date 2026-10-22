@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { buttonStyles, eyebrow } from "@/components/ui/styles";
 import { cx } from "@/lib/design";
 import { categoryIconLibrary, defaultCategoryIconKey, type CategoryIconKey } from "@/lib/shared/icon-library";
+import type { LibraryCategory } from "@/lib/shared/library-types";
 import { IconPicker } from "./icon-picker";
 import { CategoryIcon } from "./category-icon";
 import { EmptyToolsSlot } from "./library-cards";
@@ -15,13 +16,17 @@ const NAME_LIMIT = 50;
 type CreateCategoryDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Called after a successful create or edit (and after a stale edit, to refresh). */
   onCreated: () => void;
+  /** Edit this category instead of creating one (PATCH with its version). */
+  category?: LibraryCategory | null;
 };
 
 const canonical = (value: string) => value.trim().replace(/\s+/g, " ");
 
-/** Modal form for POST /api/categories (name + icon), with a live card preview. */
-export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCategoryDialogProps) {
+/** Modal form to create (POST) or edit (PATCH) a category's name and icon, with a live card preview. */
+export function CreateCategoryDialog({ open, onOpenChange, onCreated, category }: CreateCategoryDialogProps) {
+  const editing = Boolean(category);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
   const titleId = useId();
@@ -42,6 +47,16 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
       dialog.close();
     }
   }, [open]);
+
+  // Editing: start from the category's current name and icon.
+  useEffect(() => {
+    if (!open || !category) return;
+    const id = window.setTimeout(() => {
+      setName(category.name);
+      setIconKey(category.iconKey);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [open, category]);
 
   const reset = () => {
     setName("");
@@ -65,19 +80,33 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
       return;
     }
 
+    const changes = category
+      ? { ...(value !== category.name ? { name: value } : {}), ...(iconKey !== category.iconKey ? { iconKey } : {}) }
+      : null;
+    if (category && changes && Object.keys(changes).length === 0) {
+      close();
+      return;
+    }
+
     setSaving(true);
     setFieldError(null);
     setFormError(null);
     try {
-      const response = await fetch("/api/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: value, iconKey }),
-      });
+      const response = category
+        ? await fetch(`/api/categories/${category.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...changes, version: category.version }),
+          })
+        : await fetch("/api/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: value, iconKey }),
+          });
       const body = await response.json().catch(() => null);
 
       if (response.ok) {
-        toast.success(`“${value}” created`);
+        toast.success(category ? `“${value}” updated` : `“${value}” created`);
         onOpenChange(false);
         reset();
         onCreated();
@@ -90,8 +119,15 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
         nameRef.current?.focus();
       } else if (code === "VALIDATION_ERROR") {
         setFieldError(body?.error?.fields?.name?.[0] ?? body?.error?.fields?.iconKey?.[0] ?? "Check the name and icon.");
+      } else if (code === "STALE_VERSION" || code === "NOT_FOUND") {
+        setFormError(
+          code === "STALE_VERSION"
+            ? "This category changed in another tab or device. Your library was refreshed, so close this and try again."
+            : "This category no longer exists. Your library was refreshed.",
+        );
+        onCreated();
       } else {
-        setFormError(body?.error?.message ?? "The category could not be created. Try again.");
+        setFormError(body?.error?.message ?? `The category could not be ${editing ? "saved" : "created"}. Try again.`);
       }
     } catch {
       setFormError("You appear to be offline. Check your connection and try again.");
@@ -120,9 +156,9 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
       <form onSubmit={submit} noValidate className="flex max-h-[calc(100dvh-32px)] flex-col">
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-dashed border-rein-border px-7 pb-5 pt-6">
           <div className="flex flex-col gap-1.5">
-            <p className={cx("m-0", eyebrow)}>NEW ENTRY / C.01</p>
+            <p className={cx("m-0", eyebrow)}>{editing ? "EDIT ENTRY / C.02" : "NEW ENTRY / C.01"}</p>
             <h2 id={titleId} className="m-0 text-[26px] font-bold tracking-[-0.02em]">
-              Create a category
+              {editing ? "Edit category" : "Create a category"}
             </h2>
           </div>
           <button
@@ -185,7 +221,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
                   <CategoryIcon iconKey={iconKey} className="size-5 text-violet-300" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-lg font-semibold">{preview}</span>
-                <span className="font-mono text-xs text-rein-label">0</span>
+                <span className="font-mono text-xs text-rein-label">{category?.toolCount ?? 0}</span>
               </div>
               <div className="p-3">
                 <EmptyToolsSlot categoryName={preview} preview />
@@ -211,7 +247,7 @@ export function CreateCategoryDialog({ open, onOpenChange, onCreated }: CreateCa
               disabled={saving}
               className={cx(buttonStyles.primary, "disabled:cursor-wait disabled:opacity-70")}
             >
-              {saving ? "Creating…" : "Create category"}
+              {saving ? (editing ? "Saving…" : "Creating…") : editing ? "Save changes" : "Create category"}
             </button>
           </div>
         </div>

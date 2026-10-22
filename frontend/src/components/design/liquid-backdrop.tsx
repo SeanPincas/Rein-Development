@@ -54,6 +54,7 @@ export function LiquidBackdrop({ preset = "hero", gridGlow = true, className }: 
     const timeOffset = Math.random() * 200;
     let frame = 0;
     let lastDraw = 0;
+    let revealed = false;
 
     const resize = () => {
       const scale = Math.min(window.devicePixelRatio || 1, 2) * config.resolution;
@@ -66,6 +67,13 @@ export function LiquidBackdrop({ preset = "hero", gridGlow = true, className }: 
     const draw = (now: number) => {
       gl.uniform1f(uTime, timeOffset + (now / 1000) * config.speed);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      // Fade the liquid in only once a real frame exists (CSS transition on the canvas).
+      if (!revealed) {
+        revealed = true;
+        requestAnimationFrame(() => {
+          canvas.style.opacity = "1";
+        });
+      }
     };
 
     const loop = (now: number) => {
@@ -111,7 +119,11 @@ export function LiquidBackdrop({ preset = "hero", gridGlow = true, className }: 
       {webglFailed ? (
         <LavaBackdrop preset={preset} position="absolute" />
       ) : (
-        <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" />
+        // Starts transparent; the first drawn frame sets opacity 1 and it slowly pours in.
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 h-full w-full opacity-0 transition-opacity duration-[2400ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:duration-700"
+        />
       )}
       {/* Grid lines drawn over the liquid so the blueprint reads through it. */}
       <div className="blueprint-lines absolute inset-0" />

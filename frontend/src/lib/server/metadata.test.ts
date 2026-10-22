@@ -4,6 +4,7 @@ import { gzipSync } from "node:zlib";
 import { describe, expect, it, beforeEach } from "vitest";
 
 import {
+  connectWithFallback,
   discoverMetadata,
   decompressResponse,
   extractMetadata,
@@ -13,6 +14,7 @@ import {
   verifyMetadataToken,
   type MetadataFetchResponse,
   type MetadataTransport,
+  type ResolvedAddress,
 } from "./metadata";
 
 describe("metadata discovery safety helpers", () => {
@@ -30,7 +32,7 @@ describe("metadata discovery safety helpers", () => {
     expect(isUnsafeAddress("8.8.8.8")).toBe(false);
   });
 
-  it("parses safe text and only icon link candidates", () => {
+  it("parses safe title and description text", () => {
     expect(
       extractMetadata(`
         <title>  Rein &amp; Tools </title>
@@ -42,17 +44,13 @@ describe("metadata discovery safety helpers", () => {
     ).toEqual({
       title: "Rein & Tools",
       description: "A developer library",
-      icons: ["/favicon.png"],
     });
   });
 
-  it("returns editable suggestions and a ready icon through a bounded fixture transport", async () => {
+  it("returns editable suggestions from the page alone and never fetches favicons", async () => {
     const calls: string[] = [];
     const fixture = async (url: URL): Promise<MetadataFetchResponse> => {
       calls.push(url.toString());
-      if (url.pathname === "/favicon.png") {
-        return { status: 200, headers: { "content-type": "image/png" }, body: Buffer.from("png"), finalUrl: url.toString() };
-      }
       return {
         status: 200,
         headers: { "content-type": "text/html; charset=utf-8" },
@@ -65,10 +63,10 @@ describe("metadata discovery safety helpers", () => {
 
     expect(result.title).toBe("Rein");
     expect(result.description).toBe("Save tools");
-    expect(result.iconStatus).toBe("ready");
-    expect(result.iconUrl).toBe("https://public.example/favicon.png");
-    expect(calls).toEqual(["https://public.example/docs", "https://public.example/favicon.png"]);
-    expect(verifyMetadataToken(result.metadataToken, "user_123", result.sourceUrl)?.iconUrl).toBe(result.iconUrl);
+    expect(result.iconStatus).toBe("fallback");
+    expect(result.iconUrl).toBeNull();
+    expect(calls).toEqual(["https://public.example/docs"]);
+    expect(verifyMetadataToken(result.metadataToken, "user_123", result.sourceUrl)).toEqual({ iconUrl: null, iconStatus: "fallback" });
   });
 
   it("falls back when a page has no usable metadata or icon", async () => {
@@ -146,5 +144,71 @@ describe("metadata discovery safety helpers", () => {
       request: async () => { throw new Error("fixture timeout"); },
     };
     await expect(fetchBounded(new URL("https://public.example/"), { maxBytes: 1000, accept: "text/html" }, timeoutTransport)).rejects.toThrow("fixture timeout");
+  });
+});
+
+describe("metadata lookup resilience", () => {
+  beforeEach(() => {
+    process.env.CLERK_SECRET_KEY = "test-signing-secret";
+  });
+
+  it("returns empty suggestions for bot walls and non-HTML pages with a single request", async () => {
+    const calls: string[] = [];
+    const walled = await discoverMetadata("user_123", "https://walled.example/docs", async (url) => {
+      calls.push(url.pathname);
+      return { status: 403, headers: { "content-type": "text/html" }, body: Buffer.from("<title>Just a moment...</title>"), finalUrl: url.toString() };
+    });
+    expect(walled.title).toBeNull();
+    expect(walled.iconStatus).toBe("fallback");
+    expect(calls).toEqual(["/docs"]);
+
+    const bare = await discoverMetadata("user_123", "https://json.example/api", async (url) => ({
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: Buffer.from("{}"),
+      finalUrl: url.toString(),
+    }));
+    expect(bare.description).toBeNull();
+    expect(bare.iconUrl).toBeNull();
+  });
+
+  it("reads unquoted attributes and ignores look-alike attribute names", () => {
+    expect(extractMetadata('<title>X</title><meta data-name="description" content="no"><meta name=description content=Fast>')).toEqual({
+      title: "X",
+      description: "Fast",
+    });
+  });
+
+  it("tries IPv4 first and moves to the next address only on connection failures", async () => {
+    const addresses: ResolvedAddress[] = [
+      { address: "2606:4700::1", family: 6 },
+      { address: "93.184.216.34", family: 4 },
+      { address: "93.184.216.35", family: 4 },
+    ];
+    const deadline = Date.now() + 5_000;
+    const errno = (code: string) => Object.assign(new Error(code), { code });
+
+    const tried: string[] = [];
+    const value = await connectWithFallback(addresses, async ({ address }) => {
+      tried.push(address);
+      if (address === "93.184.216.34") throw errno("ECONNREFUSED");
+      return "ok";
+    }, deadline);
+    expect(value).toBe("ok");
+    expect(tried).toEqual(["93.184.216.34", "93.184.216.35"]);
+
+    let tlsAttempts = 0;
+    await expect(connectWithFallback(addresses, async () => {
+      tlsAttempts += 1;
+      throw errno("CERT_HAS_EXPIRED");
+    }, deadline)).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(tlsAttempts).toBe(1);
+
+    let attempts = 0;
+    await expect(connectWithFallback(addresses, async () => {
+      attempts += 1;
+      throw errno("ENETUNREACH");
+    }, deadline)).rejects.toMatchObject({ code: "SERVICE_UNAVAILABLE" });
+    expect(attempts).toBe(3);
   });
 });

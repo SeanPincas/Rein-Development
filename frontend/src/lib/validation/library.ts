@@ -22,6 +22,11 @@ export const toolDescriptionSchema = boundedText("Description", 280);
 export const versionSchema = z.number().int().positive();
 export const idSchema = z.uuid();
 export const metadataTokenSchema = z.string().trim().min(1).max(4096);
+export const simpleIconSlugSchema = z
+  .string()
+  .trim()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u, "Choose a valid Simple Icons brand.")
+  .max(100);
 
 export type NormalizedToolUrl = {
   url: string;
@@ -94,6 +99,7 @@ export const createToolSchema = z
     name: toolNameSchema,
     url: toolUrlSchema,
     description: toolDescriptionSchema,
+    iconSlug: simpleIconSlugSchema.optional(),
     metadataToken: metadataTokenSchema.optional(),
     category: z.union([
       z.object({ id: idSchema }).strict(),
@@ -108,6 +114,7 @@ export const updateToolSchema = z
     url: toolUrlSchema.optional(),
     description: toolDescriptionSchema.optional(),
     isFavorite: z.boolean().optional(),
+    iconSlug: simpleIconSlugSchema.nullable().optional(),
     metadataToken: metadataTokenSchema.optional(),
     categoryId: idSchema.optional(),
     version: versionSchema,
@@ -119,6 +126,7 @@ export const updateToolSchema = z
       value.url !== undefined ||
       value.description !== undefined ||
       value.isFavorite !== undefined ||
+      value.iconSlug !== undefined ||
       value.categoryId !== undefined,
     { message: "Provide a tool field to update." },
   );

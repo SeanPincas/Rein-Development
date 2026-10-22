@@ -13,6 +13,11 @@ export const blueprint = {
   page: "blueprint-grid relative isolate min-h-screen overflow-clip",
   /** Full-height app frame: fixed navbar row on top, scrolling content below. */
   shell: "relative isolate flex h-dvh flex-col overflow-hidden bg-rein-bg",
-  /** Scroll area whose content fades out at its top edge (see .scroll-fade in globals.css). */
-  scrollArea: "scroll-fade min-h-0 flex-1 overflow-y-auto overscroll-contain motion-safe:scroll-smooth",
+  /**
+   * Scroll area whose content fades out at its top edge (see .scroll-fade in globals.css).
+   * The scrollbar's gutter is mirrored on the left so content stays truly centred
+   * (and doesn't shift when a page becomes scrollable).
+   */
+  scrollArea:
+    "scroll-fade min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable_both-edges] motion-safe:scroll-smooth",
 } as const;
