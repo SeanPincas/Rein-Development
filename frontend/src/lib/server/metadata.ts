@@ -20,6 +20,13 @@ const TOTAL_TIMEOUT_MS = 5_000;
 const TOKEN_TTL_SECONDS = 10 * 60;
 const ICON_CACHE_TTL_MS = 60 * 60 * 1000;
 const ICON_CACHE_MAX_ENTRIES = 256;
+const COMMON_ICON_PATHS = [
+  "/favicon.ico",
+  "/favicon.png",
+  "/favicon.svg",
+  "/apple-touch-icon.png",
+  "/apple-touch-icon-precomposed.png",
+] as const;
 
 export type MetadataStatus = "ready" | "fallback" | "unavailable";
 
@@ -278,7 +285,7 @@ function rememberIcon(origin: string, iconUrl: string): void {
 
 async function findIcon(baseUrl: URL, candidates: string[], fetcher: MetadataFetcher): Promise<{ iconUrl: string | null; status: MetadataStatus }> {
   const cached = cachedIcon(baseUrl.origin);
-  const urls = [...(cached ? [cached] : []), ...candidates, "/favicon.ico"].slice(0, MAX_ICON_CANDIDATES + 1);
+  const urls = [...(cached ? [cached] : []), ...candidates, ...COMMON_ICON_PATHS].slice(0, MAX_ICON_CANDIDATES + 1);
   for (const candidate of urls) {
     let icon: URL;
     try { icon = new URL(candidate, baseUrl); } catch { continue; }
@@ -286,7 +293,7 @@ async function findIcon(baseUrl: URL, candidates: string[], fetcher: MetadataFet
     try {
       const response = await fetcher(icon, { maxBytes: MAX_ICON_BYTES, accept: "image/*" });
       const contentType = response.headers["content-type"]?.split(";", 1)[0]?.trim().toLowerCase();
-      if (response.status >= 200 && response.status < 300 && contentType?.startsWith("image/") && contentType !== "image/svg+xml") {
+      if (response.status >= 200 && response.status < 300 && contentType?.startsWith("image/")) {
         rememberIcon(baseUrl.origin, response.finalUrl);
         return { iconUrl: response.finalUrl, status: "ready" };
       }

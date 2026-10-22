@@ -71,6 +71,45 @@ describe("metadata discovery safety helpers", () => {
     expect(verifyMetadataToken(result.metadataToken, "user_123", result.sourceUrl)?.iconUrl).toBe(result.iconUrl);
   });
 
+  it("accepts an SVG favicon declared by the site", async () => {
+    const fixture = async (url: URL): Promise<MetadataFetchResponse> => {
+      if (url.pathname === "/favicon.svg") {
+        return { status: 200, headers: { "content-type": "image/svg+xml" }, body: Buffer.from("<svg />"), finalUrl: url.toString() };
+      }
+      return {
+        status: 200,
+        headers: { "content-type": "text/html" },
+        body: Buffer.from('<link rel="icon" type="image/svg+xml" href="/favicon.svg">'),
+        finalUrl: url.toString(),
+      };
+    };
+
+    const result = await discoverMetadata("user_123", "https://svg.example/", fixture);
+
+    expect(result.iconStatus).toBe("ready");
+    expect(result.iconUrl).toBe("https://svg.example/favicon.svg");
+  });
+
+  it("tries common favicon paths when the page does not declare an icon", async () => {
+    const calls: string[] = [];
+    const fixture = async (url: URL): Promise<MetadataFetchResponse> => {
+      calls.push(url.pathname);
+      if (url.pathname === "/favicon.png") {
+        return { status: 200, headers: { "content-type": "image/png" }, body: Buffer.from("png"), finalUrl: url.toString() };
+      }
+      if (url.pathname !== "/docs") {
+        return { status: 404, headers: { "content-type": "text/plain" }, body: Buffer.from("missing"), finalUrl: url.toString() };
+      }
+      return { status: 200, headers: { "content-type": "text/html" }, body: Buffer.from("<title>Docs</title>"), finalUrl: url.toString() };
+    };
+
+    const result = await discoverMetadata("user_123", "https://common-icons.example/docs", fixture);
+
+    expect(result.iconStatus).toBe("ready");
+    expect(result.iconUrl).toBe("https://common-icons.example/favicon.png");
+    expect(calls).toEqual(["/docs", "/favicon.ico", "/favicon.png"]);
+  });
+
   it("falls back when a page has no usable metadata or icon", async () => {
     const result = await discoverMetadata("user_123", "https://public.example/empty", async (url) => ({
       status: 200,

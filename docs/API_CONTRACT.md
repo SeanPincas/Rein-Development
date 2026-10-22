@@ -184,7 +184,7 @@ Success returns HTTP 200 with a short-lived, opaque handoff token:
 
 The server validates every redirect and DNS answer, blocks private/loopback/link-local/reserved destinations, permits only HTTP(S) on the matching default port, sends no target cookies or credentials, and bounds the total request budget, redirects, HTML bytes, decompressed bytes, icon candidates, and icon bytes. The endpoint is rate-limited by authenticated user and request address through the database-backed `consume_metadata_rate_limit` function. It returns `UNSAFE_URL`, `RATE_LIMITED`, `SERVICE_UNAVAILABLE`, or a safe generic error when discovery cannot proceed.
 
-The frontend may submit `metadataToken` with `POST /api/tools` or a URL-changing `PATCH /api/tools/:id`. The backend verifies the token signature, expiry, authenticated user, and exact source URL before accepting its icon result. Missing, expired, mismatched, or tampered tokens do not block a valid manual save; the tool is stored with `iconStatus: "fallback"` and no client-supplied icon URL is trusted.
+The frontend may submit `metadataToken` with `POST /api/tools` or a URL-changing `PATCH /api/tools/:id`. The backend verifies the token signature, expiry, authenticated user, and exact source URL before accepting its icon result. Metadata discovery checks declared favicon links, `/favicon.ico`, `/favicon.png`, `/favicon.svg`, and common Apple touch icon paths. PNG, JPEG, WebP, ICO, and SVG image responses can be displayed as the saved tool icon. Missing, expired, mismatched, or tampered tokens do not block a valid manual save; the tool is stored with `iconStatus: "fallback"` and no client-supplied icon URL is trusted.
 
 ## Categories
 
