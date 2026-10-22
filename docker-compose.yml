@@ -12,7 +12,9 @@ services:
       HOSTNAME: 0.0.0.0
       PORT: 3000
     ports:
-      - "3000:3000"
+      # Development owns localhost:3000. Production is intentionally separate
+      # so starting one can never fail because the other is running.
+      - "${REIN_PROD_PORT:-3001}:3000"
     restart: unless-stopped
 
 secrets:
