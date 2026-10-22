@@ -3,8 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      secrets:
+        - frontend_env
     env_file:
       - ./frontend/.env.local
     environment:
@@ -14,3 +14,7 @@ services:
     ports:
       - "3000:3000"
     restart: unless-stopped
+
+secrets:
+  frontend_env:
+    file: ./frontend/.env.local
