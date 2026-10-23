@@ -42,6 +42,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <ClerkProvider
           appearance={clerkAppearance}
+          // Embedded <UserProfile> account page is the "Emails & logins" tab of Rein's Account modal.
+          localization={{ userProfile: { start: { headerTitle__account: "Emails & logins" } } }}
           signInUrl="/sign-in"
           signUpUrl="/sign-up"
           // Every sign-in and sign-up must pass the email code before reaching the library.

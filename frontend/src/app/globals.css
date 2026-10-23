@@ -316,3 +316,10 @@ a:hover > .rein-wordmark .rein-wave-3,
     animation: none;
   }
 }
+
+/* Favorite star: a quick pop + tilt when toggled (library-cards.tsx ToolRow). */
+@keyframes rein-star-pop {
+  0% { transform: scale(1) rotate(0); }
+  40% { transform: scale(1.4) rotate(-14deg); }
+  100% { transform: scale(1) rotate(0); }
+}

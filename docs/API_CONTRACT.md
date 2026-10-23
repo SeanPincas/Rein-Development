@@ -296,7 +296,7 @@ Returns HTTP 204. A stale record returns `STALE_VERSION` (409).
 
 ## Email verification (post-sign-in code)
 
-Every Clerk sign-in and sign-up is followed by a mandatory email code. Clerk redirects to `/verify-email`; `proxy.ts` sends signed-out users to `/sign-in`, keeps unverified users out of `/library`, and sends already-verified users from `/verify-email` to `/library`.
+Every Clerk sign-in and sign-up is followed by a mandatory email code. Clerk redirects to `/verify-email`. The pages check access on the server (`src/lib/server/page-guards.ts`, called inside a Suspense boundary): signed-out users go to `/sign-in`, unverified users are kept out of `/library`, and already-verified users are sent from `/verify-email` to `/library`. `proxy.ts` only runs Clerk's session middleware.
 
 **Private API routes** (`/api/library`, `/api/categories*`, `/api/tools*`, `/api/metadata`) return `EMAIL_UNVERIFIED` (403) until the current Clerk session is verified. Only the three routes below run before verification.
 

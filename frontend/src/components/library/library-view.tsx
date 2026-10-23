@@ -47,7 +47,9 @@ async function fetchLibrary(): Promise<FetchResult> {
   }
 }
 
-async function toggleFavorite(tool: LibraryTool): Promise<{ ok: true } | { ok: false; message: string }> {
+async function toggleFavorite(
+  tool: LibraryTool,
+): Promise<{ ok: true; tool?: LibraryTool } | { ok: false; code?: string; message: string }> {
   try {
     const response = await fetch(`/api/tools/${tool.id}`, {
       method: "PATCH",
@@ -55,8 +57,8 @@ async function toggleFavorite(tool: LibraryTool): Promise<{ ok: true } | { ok: f
       body: JSON.stringify({ isFavorite: !tool.isFavorite, version: tool.version }),
     });
     const body = await response.json().catch(() => null);
-    if (response.ok) return { ok: true };
-    return { ok: false, message: body?.error?.message ?? "Favorite status could not be updated." };
+    if (response.ok) return { ok: true, tool: body?.data?.tool as LibraryTool | undefined };
+    return { ok: false, code: body?.error?.code, message: body?.error?.message ?? "Favorite status could not be updated." };
   } catch {
     return { ok: false, message: "You appear to be offline. Try again." };
   }
@@ -93,6 +95,17 @@ const librarySignature = (snapshot: LibrarySnapshot) =>
     .join("|");
 
 const withCategories = (snapshot: LibrarySnapshot, categories: LibraryCategory[]): LibrarySnapshot => ({ ...snapshot, categories });
+
+/** Snapshot with one tool's fields replaced (local update; no refetch). */
+const patchTool = (snapshot: LibrarySnapshot, toolId: string, patch: Partial<LibraryTool>): LibrarySnapshot =>
+  withCategories(
+    snapshot,
+    snapshot.categories.map((category) =>
+      category.tools.some((tool) => tool.id === toolId)
+        ? { ...category, tools: category.tools.map((tool) => (tool.id === toolId ? { ...tool, ...patch } : tool)) }
+        : category,
+    ),
+  );
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
@@ -140,6 +153,7 @@ export function LibraryView() {
   const [addTool, setAddTool] = useState<{ open: boolean; categoryId?: string }>({ open: false });
   const openAddTool = (categoryId?: string) => setAddTool({ open: true, categoryId });
   const lastSignature = useRef<string | null>(null);
+  const pendingFavorites = useRef(new Set<string>());
   const lastLoad = useRef(0);
   // Drag state: nothing moves while dragging; the held card fades and the card under the
   // pointer is highlighted. On drop the order changes once and every card slides into place.
@@ -302,11 +316,42 @@ export function LibraryView() {
     document.querySelector<HTMLElement>(`[data-reorder-handle="${id}"]`)?.focus();
   });
 
-  const handleToggleFavorite = useCallback(async (tool: LibraryTool) => {
-    const result = await toggleFavorite(tool);
-    if (!result.ok) return;
-    reload("refresh");
-  }, [reload]);
+  /**
+   * Favorite in place: flip the star at once (the row slides to its sorted spot via the
+   * card's FLIP), save in the background, then keep the server's copy of just that tool.
+   * No library refetch, so the entrance animation doesn't replay. Failure reverts.
+   */
+  const handleToggleFavorite = useCallback(
+    async (tool: LibraryTool) => {
+      if (pendingFavorites.current.has(tool.id)) return; // one save per tool at a time
+      pendingFavorites.current.add(tool.id);
+      const next = !tool.isFavorite;
+      setState((current) =>
+        current.status === "ready" ? { status: "ready", snapshot: patchTool(current.snapshot, tool.id, { isFavorite: next }) } : current,
+      );
+      setAnnouncement(next ? `${tool.name} added to favorites.` : `${tool.name} removed from favorites.`);
+
+      const result = await toggleFavorite(tool);
+      pendingFavorites.current.delete(tool.id);
+      setState((current) => {
+        if (current.status !== "ready") return current;
+        const snapshot = patchTool(
+          current.snapshot,
+          tool.id,
+          result.ok ? (result.tool ?? { isFavorite: next }) : { isFavorite: tool.isFavorite },
+        );
+        // The saved tool has a new version; remember it so the next background refresh isn't a "change".
+        lastSignature.current = librarySignature(snapshot);
+        return { status: "ready", snapshot };
+      });
+      if (!result.ok) {
+        toast.error(result.message);
+        // Changed elsewhere: pull fresh versions.
+        if (result.code === "STALE_VERSION" || result.code === "NOT_FOUND") reload("refresh");
+      }
+    },
+    [reload],
+  );
 
   useEffect(() => {
     let cancelled = false;
