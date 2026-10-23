@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowPathIcon, ArrowsUpDownIcon, CheckIcon, FolderPlusIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { SiteFooter } from "@/components/landing/site-footer";
+import { useDragEdgeScroll } from "@/components/design/use-drag-edge-scroll";
 import { AppShell } from "@/components/layout/app-shell";
 import { Navbar } from "@/components/navigation/navbar";
 import { buttonStyles, eyebrow, panel } from "@/components/ui/styles";
@@ -160,6 +161,8 @@ export function LibraryView() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  // Holding a card near the top or bottom edge scrolls the library slowly, faster nearer the edge.
+  useDragEdgeScroll(draggingId !== null);
   // Rearranging is an explicit mode: handles and dragging only appear while it is on.
   const [rearranging, setRearranging] = useState(false);
   // Phones rearrange in a dialog of compact rows instead of dragging long cards.
