@@ -1,11 +1,27 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { VerifyEmailForm } from "@/components/auth/verify-email-form";
+import { requirePendingVerification } from "@/lib/server/page-guards";
 
 export const metadata: Metadata = { title: "Verify your email" };
 
-/** Mandatory after every sign-in and sign-up; proxy.ts gates access to it and to /library. */
+/** Signed-in users who still need the code: checked on the server before rendering. */
+async function PendingVerification() {
+  await requirePendingVerification();
+  return <VerifyEmailContent />;
+}
+
+/** Mandatory after every sign-in and sign-up. */
 export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={null}>
+      <PendingVerification />
+    </Suspense>
+  );
+}
+
+function VerifyEmailContent() {
   return (
     <AuthShell
       sheet="VERIFY / SHEET V.01"

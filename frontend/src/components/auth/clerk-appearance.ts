@@ -5,24 +5,21 @@ const authCardElements = {
 };
 
 /**
- * Account settings (<UserProfile/>, opened from the avatar menu): full-screen sheet on
- * phones, a wide two-pane panel from tablets up, in Rein's blueprint styling.
+ * Clerk's <UserProfile> embedded in Rein's Account modal ("Emails & logins" and
+ * "Security" tabs): no card chrome, no Clerk nav (Rein's modal has its own), and
+ * Clerk's own profile card hidden (Rein's Profile tab replaces it). Element keys only,
+ * no structural selectors, so Clerk updates can't break the layout.
  */
 export const userProfileAppearance = {
   elements: {
-    modalBackdrop: "items-stretch p-0 backdrop-blur-sm sm:items-center sm:p-4",
-    modalContent: "m-0 w-full max-w-none sm:my-auto sm:w-[min(960px,calc(100vw-32px))]",
-    cardBox:
-      "h-dvh w-full max-w-none rounded-none border-0 bg-[#07050f] shadow-none sm:h-[min(680px,calc(100dvh-32px))] sm:rounded-[20px] sm:border sm:border-rein-border-strong sm:shadow-[0_0_120px_rgb(124_58_237/0.3)]",
-    // Left menu (desktop) / slide-over menu (mobile).
-    navbar: "bg-black/60 bg-none sm:border-r sm:border-dashed sm:border-rein-border",
-    navbarButton: "rounded-[10px] text-rein-muted hover:bg-violet-500/10 hover:text-white",
-    navbarMobileMenuRow: "border-b border-dashed border-rein-border bg-black/60",
-    navbarMobileMenuButton: "text-white",
-    // Right pane.
-    scrollBox: "rounded-none bg-[#0a0618] bg-none",
-    pageScrollBox: "px-4 py-6 sm:px-8 sm:py-8",
-    headerTitle: "text-[26px] font-bold tracking-[-0.02em] sm:text-[28px]",
+    rootBox: "w-full",
+    cardBox: "w-full max-w-none h-auto rounded-none border-0 bg-transparent shadow-none",
+    navbar: "hidden",
+    navbarMobileMenuRow: "hidden",
+    scrollBox: "rounded-none bg-transparent bg-none shadow-none",
+    pageScrollBox: "p-0",
+    headerTitle: "text-[24px] font-bold tracking-[-0.02em] sm:text-[26px]",
+    profileSection__profile: "hidden",
     profileSection: "border-t border-dashed border-rein-border pt-5 first:border-t-0",
     profileSectionTitleText: "font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-rein-label",
     profileSectionPrimaryButton: "rounded-[10px] text-violet-300 hover:bg-violet-500/10 hover:text-white",
@@ -33,42 +30,14 @@ export const userProfileAppearance = {
     profileSectionTitleText__danger: "text-red-300!",
     profileSectionPrimaryButton__danger:
       "border border-red-400/40 bg-red-500/10 px-3 text-red-300! hover:bg-red-500/20! hover:text-red-200!",
-    avatarBox: "ring-2 ring-rein-accent/40 ring-offset-2 ring-offset-[#0a0618]",
+    avatarBox: "ring-2 ring-rein-accent/40 ring-offset-2 ring-offset-[#07050f]",
     badge: "border border-rein-accent/40 bg-rein-accent/15 text-violet-200",
     menuButton: "rounded-lg text-rein-label hover:bg-violet-500/15 hover:text-violet-200",
     menuList: "rounded-xl border border-rein-border-strong bg-[#0d0820] shadow-[0_18px_50px_rgb(0_0_0/0.6)]",
     menuItem: "rounded-lg hover:bg-violet-500/15",
     actionCard: "rounded-xl border border-rein-border-strong bg-black/40",
     formButtonReset: "rounded-[10px] text-rein-soft hover:bg-white/5 hover:text-white",
-    modalCloseButton: "rounded-[10px] text-rein-soft hover:bg-white/5 hover:text-white",
-    footer: "border-t border-rein-line bg-black/60 bg-none",
-  },
-};
-
-/**
- * Navbar avatar and its menu (<UserButton/>): responsive ringed avatar; the menu is a
- * dark violet card with a dashed rule under the user, violet hover rows, and a red
- * hover on Sign out.
- */
-export const userButtonAppearance = {
-  elements: {
-    // Trigger: 32px phone / 36px tablet / 40px desktop (Clerk's default is 28px).
-    userButtonAvatarBox:
-      "size-8 ring-2 ring-rein-accent/40 ring-offset-1 ring-offset-black transition-shadow hover:ring-rein-accent sm:size-9 sm:ring-offset-2 min-[1200px]:size-10",
-    userButtonPopoverCard:
-      "w-[min(320px,calc(100vw-24px))] overflow-hidden rounded-[18px] border border-rein-border-strong bg-[#0a0618] shadow-[0_24px_70px_rgb(0_0_0/0.65),0_0_60px_rgb(124_58_237/0.25)]",
-    userButtonPopoverMain: "rounded-none bg-[#0a0618] bg-none shadow-none",
-    userPreview__userButton: "border-b border-dashed border-rein-border pb-4",
-    userPreviewAvatarBox__userButton: "size-11 ring-2 ring-rein-accent/40 ring-offset-2 ring-offset-[#0a0618]",
-    userPreviewMainIdentifierText__userButton: "text-[15px] font-semibold text-white",
-    userPreviewSecondaryIdentifier__userButton: "font-mono text-[11px] tracking-[0.04em] text-rein-label",
-    userButtonPopoverActions: "gap-1 border-0 p-2",
-    userButtonPopoverActionButton:
-      "rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-white/85 transition-colors hover:bg-violet-500/15 hover:text-white",
-    userButtonPopoverActionButtonIcon: "text-violet-300",
-    userButtonPopoverActionButton__signOut: "hover:bg-red-500/10! hover:text-red-200!",
-    userButtonPopoverActionButtonIcon__signOut: "text-rein-label",
-    userButtonPopoverFooter: "border-t border-rein-line bg-black/60 bg-none",
+    footer: "border-t border-rein-line bg-transparent bg-none",
   },
 };
 

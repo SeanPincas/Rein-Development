@@ -11,6 +11,8 @@ type FlipOptions = {
   enabled?: boolean;
   /** Cascade order of ids; defaults to `orderKey.split("|")`. */
   order?: readonly string[];
+  /** Attribute marking the items to slide (default `data-flip-id`); lets nested lists animate independently. */
+  attribute?: string;
 };
 
 /**
@@ -27,12 +29,13 @@ export function useFlip(containerRef: RefObject<HTMLElement | null>, orderKey: s
     staggerMs = FLIP_DEFAULTS.staggerMs,
     enabled = true,
     order: orderOption,
+    attribute = "data-flip-id",
   } = options;
 
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const next = measureFlipItems(container);
+    const next = measureFlipItems(container, attribute);
     const orderChanged = lastKey.current !== orderKey;
     lastKey.current = orderKey;
 
@@ -42,7 +45,7 @@ export function useFlip(containerRef: RefObject<HTMLElement | null>, orderKey: s
         ([a], [b]) => order.indexOf(a) - order.indexOf(b),
       );
       moved.forEach(([id, delta], step) => {
-        const element = container.querySelector<HTMLElement>(`[data-flip-id="${CSS.escape(id)}"]`);
+        const element = container.querySelector<HTMLElement>(`[${attribute}="${CSS.escape(id)}"]`);
         // fill "backwards" holds the old position during the cascade delay, so nothing jumps first.
         element?.animate(
           [{ transform: `translate(${delta.x}px, ${delta.y}px)` }, { transform: "translate(0, 0)" }],

@@ -2,7 +2,7 @@
 
 Prepared October 23, 2026 for the deployment session. This file is the single starting point for taking Rein from local development to a live production site. Read it together with `README.md` (status and decision log), `docs/API_CONTRACT.md`, `docs/DOCKER.md`, and `docs/PHASE_7_RELEASE_READINESS.md`.
 
-Nothing here is deployed yet. Checkboxes record progress; tick them as each step is verified, and add a line to the README decision log for every decision.
+**Staging is live (Oct 24, 2026): https://rein-development.vercel.app** — Vercel project `rein-development` (Hobby), deploys `main` from `frontend/`, Clerk development keys, Supabase "Rein Development". Verified live: landing page, sign-in + Rein email code (Brevo), add/edit tool with logo matching, new category. Production (own domain, Clerk production instance, separate database) is not done yet. Checkboxes record progress; tick them as each step is verified, and add a line to the README decision log for every decision.
 
 ## Where things stand
 
@@ -31,10 +31,11 @@ Ownership stays as before: Codex owns database, migrations and API routes; Claud
 
 Record the choices here:
 
-- [ ] Hosting: ____________________
-- [ ] Domain: ____________________ (app URL `https://__________`)
-- [ ] Supabase production project: ____________________
-- [ ] Brevo sender: ____________________
+- [x] Hosting: **Vercel** (decided Oct 24, 2026)
+- [ ] Domain: **staging first, domain later** — go live on the `*.vercel.app` URL with the Clerk **development** instance (shows the "Development mode" banner), then buy a domain and do Phase 3 for the production Clerk instance (app URL `https://__________`)
+- [x] Supabase for staging: **reuse "Rein Development"** (`jpqrudfcnaoxwskchprf`), decided Oct 24, 2026 — the free plan's two project slots are taken (MMPoultryFarm is a client's live project: never pause or touch it). Create a separate production database when going fully live (Pro plan, or a freed slot)
+- [ ] Brevo sender: decide with the domain (staging keeps the development sender)
+- [x] Branch: merge `dev` into `main`; Vercel deploys `main`
 
 ## Phase 1 — Code freeze and local verification
 
@@ -50,7 +51,7 @@ Goal: a clean, committed `main` that builds the same way the host will build it.
 - [ ] Update `docs/DOCKER.md`: it still calls `docker-compose.yml` the production-style file; it is now the development setup and `docker-compose.prod.yml` is production.
 - [ ] Optional cleanup: `frontend/src/components/landing/library-sketch.tsx` is no longer used (the hero is now a screenshot).
 
-Known, non-blocking: Clerk logs a deprecation warning for `createRouteMatcher` in `src/proxy.ts`. It still works; plan a migration to per-route auth checks after launch.
+- [x] Clerk `createRouteMatcher` deprecation resolved (Oct 24, 2026): page access checks moved into the pages (`src/lib/server/page-guards.ts`); `proxy.ts` is plain `clerkMiddleware()`.
 
 ## Phase 2 — Production database (Supabase)
 

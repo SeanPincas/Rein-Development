@@ -38,11 +38,11 @@ export function flipDeltas(
 }
 
 /** Positions of every `[data-flip-id]` element, relative to `container`. */
-export function measureFlipItems(container: HTMLElement): Map<string, Point> {
+export function measureFlipItems(container: HTMLElement, attribute = "data-flip-id"): Map<string, Point> {
   const base = container.getBoundingClientRect();
   const positions = new Map<string, Point>();
-  container.querySelectorAll<HTMLElement>("[data-flip-id]").forEach((element) => {
-    const id = element.dataset.flipId;
+  container.querySelectorAll<HTMLElement>(`[${attribute}]`).forEach((element) => {
+    const id = element.getAttribute(attribute);
     if (!id) return;
     const rect = element.getBoundingClientRect();
     positions.set(id, { x: rect.left - base.left, y: rect.top - base.top });
