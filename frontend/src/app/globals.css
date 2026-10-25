@@ -75,9 +75,11 @@ body {
  * colours through scrollbar-color. The standard properties are Firefox-only on
  * purpose: when they are set, Chromium ignores the richer pseudo-element styles.
  */
+/* Not inherited: only the page scroll area fades. Scroll areas inside it (the icon
+   picker, dialog bodies) keep their own always-visible thumb. */
 @property --rein-scroll-thumb {
   syntax: "<color>";
-  inherits: true;
+  inherits: false;
   initial-value: #7c3aed;
 }
 ::-webkit-scrollbar {
@@ -128,6 +130,7 @@ body {
 }
 
 /* Icon picker: a slimmer, track-less horizontal bar. */
+.icon-picker-scroll { --rein-scroll-thumb: #7c3aed; }
 .icon-picker-scroll::-webkit-scrollbar { height: 8px; }
 .icon-picker-scroll::-webkit-scrollbar-track { background: transparent; box-shadow: none; }
 .icon-picker-scroll::-webkit-scrollbar-thumb { border-width: 1px; }
@@ -139,6 +142,10 @@ body {
   }
   .scroll-idle {
     scrollbar-color: transparent transparent;
+  }
+  /* scrollbar-color inherits in Firefox: keep nested scroll areas visible. */
+  .scroll-idle * {
+    scrollbar-color: #7c3aed transparent;
   }
   .icon-picker-scroll {
     scrollbar-color: #7c3aed transparent;
