@@ -190,8 +190,19 @@ export function AddToolDialog({ open, onOpenChange, categories, initialCategoryI
         setEdited({ name: true, description: true });
         return;
       }
-      setCategoryMode(categories.length ? "existing" : "new");
-      setCategoryId(initialCategoryId ?? categories[0]?.id);
+      // New tool: apply the default category once per opening. The library refreshes
+      // when the tab regains focus (e.g. after copying text elsewhere), handing us a
+      // new `categories` array; that must not undo the user's mode or choice.
+      const key = `new:${initialCategoryId ?? ""}`;
+      if (prefilledFor.current !== key) {
+        prefilledFor.current = key;
+        setCategoryMode(categories.length ? "existing" : "new");
+        setCategoryId(initialCategoryId ?? categories[0]?.id);
+        return;
+      }
+      // Already set up: only repair a choice the refresh made impossible.
+      if (!categories.length) setCategoryMode("new");
+      setCategoryId((current) => (current && categories.some((category) => category.id === current) ? current : categories[0]?.id));
     }, 0);
     return () => window.clearTimeout(id);
   }, [open, initialCategoryId, categories, tool]);
